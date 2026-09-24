@@ -10,7 +10,7 @@
 <input class='field' id='loginId' autocomplete='username' placeholder='E-mail ou celular'>
 <input class='field' id='loginPass' autocomplete='current-password' type='password' placeholder='Senha'>
 <button type='button' class='btn primary' onclick='doLogin()'>Entrar</button>
-<button class='linkbtn' onclick='showCreate()'>Ainda não tenho conta</button>
+<button type='button' class='linkbtn' onclick='showCreate()'>Ainda não tenho conta</button>
 <p class='small'>O navegador/celular pode oferecer preenchimento automático e desbloqueio do gerenciador de senhas.</p></div>
 <div class='card hide' id='createBox'><h2>Crie sua conta</h2>
 <input class='field' id='name' autocomplete='name' placeholder='Seu nome completo'>
@@ -18,8 +18,8 @@
 <input class='field' id='phone' autocomplete='tel' inputmode='tel' placeholder='Telefone'>
 <input class='field' id='email' autocomplete='email' inputmode='email' placeholder='E-mail'>
 <input class='field' id='pass' autocomplete='new-password' type='password' placeholder='Crie uma senha'>
-<button class='btn primary' onclick='start()'>Continuar</button>
-<button class='linkbtn' onclick='showLogin()'>Já tenho conta</button>
+<button type='button' class='btn primary' onclick='start()'>Continuar</button>
+<button type='button' class='linkbtn' onclick='showLogin()'>Já tenho conta</button>
 <p class='small'>Versão de testes: os dados ainda ficam neste aparelho. Não use senha bancária ou uma senha importante.</p></div></section>
 <section id='onboard' class='hide'><button class='btn ghost' onclick='prev()'>← Voltar</button><div class='dots' id='dots'></div><div id='q'></div></section>
 <section id='app' class='hide'><div class='brand'>A<i>casal</i>ador</div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button class='btn primary' onclick='shareInvite()'>Compartilhar convite</button></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
@@ -32,11 +32,20 @@ let step=0;const state=JSON.parse(localStorage.getItem('acasalador')||'{}');cons
 {title:'Vocês moram juntos?',opts:['Sim','Não','Às vezes / parcialmente'],key:'moram'},
 {title:'Escolha sua cor',colors:['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'],key:'cor'}];
 function save(){localStorage.setItem('acasalador',JSON.stringify(state))}
-function start(){if(!name.value.trim()||!phone.value.trim()||!email.value.trim()||!pass.value){alert('Preencha nome, celular, e-mail e senha.');return}state.name=name.value.trim();state.nick=state.name.split(' ')[0];state.phone=phone.value.trim();state.email=email.value.trim();state.password=pass.value;state.account=true;state.logged=true;save();login.classList.add('hide');onboard.classList.remove('hide');renderQ()}
-function renderQ(){dots.innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors)h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' style='background:${c}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`;q.innerHTML=h+'</div>'}
-function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else showApp()}function prev(){if(step>0){step--;renderQ()}else{onboard.classList.add('hide');login.classList.remove('hide')}}
-function showApp(){onboard.classList.add('hide');app.classList.remove('hide');bottom.classList.remove('hide');hello.textContent=`Oi, ${state.name||'você'}. ${state.tipo||'Relacionamento'} em modo organização.`}function home(){feature.classList.add('hide');app.classList.remove('hide')}
-function page(p){app.classList.add('hide');feature.classList.remove('hide');let h=`<button class='btn ghost' onclick='home()'>← Início</button>`;if(p==='agenda')h+=agenda();if(p==='dinheiro')h+=dinheiro();if(p==='lugares')h+=lugares();if(p==='lembretes')h+=lembretes();if(p==='compras')h+=compras();if(p==='perfil')h+=perfil();feature.innerHTML=h}
+function el(id){return document.getElementById(id)}
+function start(){
+  const nameEl=el('name'), phoneEl=el('phone'), emailEl=el('email'), passEl=el('pass');
+  if(!nameEl||!phoneEl||!emailEl||!passEl){alert('Erro ao carregar o cadastro. Atualize a página.');return}
+  const n=nameEl.value.trim(), ph=phoneEl.value.trim(), em=emailEl.value.trim(), pw=passEl.value;
+  if(!n||!ph||!em||!pw){alert('Preencha nome, celular, e-mail e senha.');return}
+  state.name=n; state.nick=n.split(' ')[0]; state.phone=ph; state.email=em; state.password=pw;
+  state.account=true; state.logged=true; save();
+  el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
+}
+function renderQ(){el('dots').innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors)h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' style='background:${c}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`;el('q').innerHTML=h+'</div>'}
+function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else showApp()}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
+function showApp(){el('onboard').classList.add('hide');el('app').classList.remove('hide');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.name||'você'}. ${state.tipo||'Relacionamento'} em modo organização.`}function home(){el('feature').classList.add('hide');el('app').classList.remove('hide')}
+function page(p){el('app').classList.add('hide');el('feature').classList.remove('hide');let h=`<button class='btn ghost' onclick='home()'>← Início</button>`;if(p==='agenda')h+=agenda();if(p==='dinheiro')h+=dinheiro();if(p==='lugares')h+=lugares();if(p==='lembretes')h+=lembretes();if(p==='compras')h+=compras();if(p==='perfil')h+=perfil();el('feature').innerHTML=h}
 function agenda(){let d=['D','S','T','Q','Q','S','S'],cells=d.map(x=>`<b style='text-align:center'>${x}</b>`).join('');for(let i=1;i<=30;i++)cells+=`<div class='day'>${i}${[4,11,19].includes(i)?'<br><i class="mark"></i>':''}</div>`;return `<h2>Nossa agenda</h2><div class='card'><div class='row'><span class='tag'>Setembro 2026</span><span class='tag'>Sua cor identifica seus eventos</span></div><div class='month'>${cells}</div></div><div class='card'><h3>Disponibilidade de trabalho</h3><p class='small'>Cadastre dias e horários de trabalho. Ao criar um evento conflitante, o sistema avisará antes de confirmar.</p><button class='btn primary'>+ Cadastrar horário</button></div>`}
 function dinheiro(){return `<h2>Nosso dinheiro</h2>
 <div class='moneytabs'><button class='btn ghost' onclick='moneyMode("joint")'>🔗 Conjunto</button><button class='btn primary' onclick='moneyMode("individual")'>🔒 Individual</button></div>
@@ -64,20 +73,20 @@ function perfil(){return `<h2>Perfil</h2><div class='card'>
 </div>`}
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function showCreate(){loginBox.classList.add('hide');createBox.classList.remove('hide')}
-function showLogin(){createBox.classList.add('hide');loginBox.classList.remove('hide')}
+function showCreate(){el('loginBox').classList.add('hide');el('createBox').classList.remove('hide')}
+function showLogin(){el('createBox').classList.add('hide');el('loginBox').classList.remove('hide')}
 function normPhone(v){return String(v||'').replace(/\D/g,'')}
 function doLogin(){
-  const id=loginId.value.trim();
-  const p=loginPass.value;
+  const id=el('loginId').value.trim();
+  const p=el('loginPass').value;
   if(!id||!p){alert('Informe seu e-mail ou celular e sua senha.');return}
   if(!state.account){alert('Ainda não existe uma conta cadastrada neste aparelho. Clique em “Ainda não tenho conta” para criar sua conta.');return}
   const emailOk=id.toLowerCase()===String(state.email||'').trim().toLowerCase();
   const phoneOk=normPhone(id)!=='' && normPhone(id)===normPhone(state.phone);
   if(!(emailOk||phoneOk)||p!==state.password){alert('E-mail/celular ou senha incorretos.');return}
-  state.logged=true; save(); login.classList.add('hide'); showApp();
+  state.logged=true; save(); el('login').classList.add('hide'); showApp();
 }
-function logout(){state.logged=false;save();feature.classList.add('hide');app.classList.add('hide');bottom.classList.add('hide');login.classList.remove('hide');showLogin();loginPass.value=''}
+function logout(){state.logged=false;save();el('feature').classList.add('hide');el('app').classList.add('hide');el('bottom').classList.add('hide');el('login').classList.remove('hide');showLogin();el('loginPass').value=''}
 function saveProfile(){state.name=pfName.value.trim();state.nick=pfNick.value.trim();state.loveName=pfLove.value.trim();state.phone=pfPhone.value.trim();state.email=pfEmail.value.trim();state.cor=pfColor.value;document.documentElement.style.setProperty('--me',state.cor);save();alert('Perfil atualizado.');page('perfil')}
 function moneyMode(m){moneyArea.innerHTML=m==='individual'?moneyIndividual():`<div class='card'><h3>Conjunto</h3><p class='small'>A negociação de despesas entre contas será ativada quando conectarmos o banco online.</p></div>`}
 function moneyIndividual(){let inc=state.moneyIncome||0, cats=state.moneyCats||[];let spent=cats.reduce((s,c)=>s+c.items.reduce((a,x)=>a+(+x.value||0),0),0);return `<div class='card'><h3>Resumo individual 🔒</h3>
@@ -100,5 +109,5 @@ function doneReminder(i){state.reminders[i].done=!state.reminders[i].done;save()
 async function shareInvite(){let code=Math.random().toString(36).slice(2,10).toUpperCase(),url=location.origin+location.pathname+'?convite='+code,text=`${state.name||'Alguém'} convidou você para entrar no Acasalador. ${url}`;if(navigator.share){try{await navigator.share({title:'Convite Acasalador',text,url})}catch(e){}}else{navigator.clipboard?.writeText(text);alert('Convite copiado!')}}
 if(state.cor)document.documentElement.style.setProperty('--me',state.cor);
 if(state.account){showLogin()}
-if(state.account&&state.logged&&state.tipo&&state.cor){login.classList.add('hide');showApp()}
+if(state.account&&state.logged&&state.tipo&&state.cor){el('login').classList.add('hide');showApp()}
 </script></body></html>
