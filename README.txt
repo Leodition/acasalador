@@ -1,9 +1,13 @@
-ACASALADOR - protótipo funcional
+ACASALADOR v0.2
 
-1. Abra index.html para testar localmente.
-2. Esta versão demonstra login, onboarding, cor individual, convite, agenda, dinheiro, lugares, lembretes e compras/estoque.
-3. Os dados do protótipo ficam em localStorage no aparelho.
-4. Para uso real em dois ou três celulares, é necessário conectar autenticação, banco online, notificações push e hospedagem HTTPS.
-5. O subdomínio acasalador.leodition.com.br pode apontar para a hospedagem desta pasta/projeto.
+ALTERAÇÕES
+- CASAL destacado visualmente no nome.
+- Login por CPF ou e-mail + senha.
+- Campos compatíveis com preenchimento automático do navegador/celular.
+- Perfil editável, apelido no app, nome do amoreco e botão Sair.
+- Dinheiro Individual funcional para testes locais: receita, categorias, gastos, forma de pagamento e saldo estimado.
+- Lembretes com Horários definidos: adicionar/remover vários horários.
+- Dados continuam em localStorage nesta versão.
 
-IMPORTANTE: não use esta versão local para dados financeiros reais ou informações privadas. A área individual precisa de autenticação segura no backend antes da publicação real.
+IMPORTANTE
+Esta ainda é uma versão local. A autenticação não é backend seguro e o financeiro individual ainda não sincroniza com servidor.

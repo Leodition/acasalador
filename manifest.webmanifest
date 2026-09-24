@@ -1,1 +1,9 @@
-{"name":"Acasalador","short_name":"Acasalador","start_url":"./","display":"standalone","background_color":"#f7f4f1","theme_color":"#171717","description":"Organização compartilhada para casais e trisais."}
+{
+  "name": "Acasalador",
+  "short_name": "Acasalador",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f4f1",
+  "theme_color": "#171717",
+  "description": "Organização compartilhada para casal ou trisal."
+}
