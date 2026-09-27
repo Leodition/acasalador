@@ -129,13 +129,13 @@ function doneReminder(i){state.reminders[i].done=!state.reminders[i].done;save()
 async function ensureRelationship(){
   const {data:{user}}=await sb.auth.getUser(); if(!user)return null;
   let {data:member,error:me}=await sb.from('relationship_members').select('relationship_id,color').eq('user_id',user.id).limit(1).maybeSingle();
-  if(me){console.error(me);return null}
+  if(me){console.error(me);alert('Erro ao consultar relacionamento: '+me.message);return null}
   if(member){state.relationshipId=member.relationship_id; if(member.color)state.cor=member.color; save(); return member.relationship_id}
   const type=(state.tipo||'Casal').toLowerCase()==='trisal'?'trisal':'casal';
   const {data:rel,error:re}=await sb.from('relationships').insert({type}).select('id').single();
   if(re){alert('Não foi possível criar o relacionamento: '+re.message);return null}
   const {error:rm}=await sb.from('relationship_members').insert({relationship_id:rel.id,user_id:user.id,color:state.cor||'#ff6b6b'});
-  if(rm){alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
+  if(rm){console.error(rm);alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
   state.relationshipId=rel.id; save(); return rel.id
 }
 async function shareInvite(btn){
@@ -146,7 +146,7 @@ async function shareInvite(btn){
     const code=crypto.randomUUID().replace(/-/g,'').slice(0,10).toUpperCase();
     const payload={relationship_id:relationshipId,codigo:code,created_by:user.id};
     const {error}=await sb.from('relationship_invites').insert(payload); if(error)throw error;
-    const base=location.protocol==='file:'?'https://acasaldor.leodition.com.br/':location.origin+location.pathname;
+    const base=location.protocol==='file:'?'https://acasalador.leodition.com.br/':location.origin+location.pathname;
     const url=base+'?convite='+encodeURIComponent(code);
     const msg=`${state.name||'Alguém'} convidou você para entrar no Acasalador. Código: ${code}\n${url}`;
     const box=el('inviteResult')||el('inviteResultProfile');
