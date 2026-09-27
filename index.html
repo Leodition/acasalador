@@ -128,13 +128,13 @@ function doneReminder(i){state.reminders[i].done=!state.reminders[i].done;save()
 
 async function ensureRelationship(){
   const {data:{user}}=await sb.auth.getUser(); if(!user)return null;
-  let {data:member,error:me}=await sb.from('relationship_members').select('relationship_id,color').eq('user_id',user.id).limit(1).maybeSingle();
+  let {data:member,error:me}=await sb.from('relationship_members').select('relationship_id,cor').eq('user_id',user.id).limit(1).maybeSingle();
   if(me){console.error(me);alert('Erro ao consultar relacionamento: '+me.message);return null}
-  if(member){state.relationshipId=member.relationship_id; if(member.color)state.cor=member.color; save(); return member.relationship_id}
+  if(member){state.relationshipId=member.relationship_id; if(member.cor)state.cor=member.cor; save(); return member.relationship_id}
   const type=(state.tipo||'Casal').toLowerCase()==='trisal'?'trisal':'casal';
   const {data:rel,error:re}=await sb.from('relationships').insert({type,tipo:type,criado_por:user.id}).select('id').single();
   if(re){alert('Não foi possível criar o relacionamento: '+re.message);return null}
-  const {error:rm}=await sb.from('relationship_members').insert({relationship_id:rel.id,user_id:user.id,color:state.cor||'#ff6b6b'});
+  const {error:rm}=await sb.from('relationship_members').insert({relationship_id:rel.id,user_id:user.id,cor:state.cor||'#ff6b6b'});
   if(rm){console.error(rm);alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
   state.relationshipId=rel.id; save(); return rel.id
 }
@@ -162,14 +162,14 @@ async function acceptInvite(code){
   if(ie||!inv){alert('Convite inválido ou indisponível.');return}
   const {data:rel,error:re}=await sb.from('relationships').select('id,type,tipo').eq('id',inv.relationship_id).single();
   if(re){alert('Não foi possível abrir o relacionamento.');return}
-  const {data:members,error:ce}=await sb.from('relationship_members').select('user_id,color').eq('relationship_id',inv.relationship_id);
+  const {data:members,error:ce}=await sb.from('relationship_members').select('user_id,cor').eq('relationship_id',inv.relationship_id);
   if(ce){alert('Não foi possível verificar os membros.');return}
   const relType=rel.type||rel.tipo||'casal'; const max=String(relType).toLowerCase()==='trisal'?3:2;
   if(members.some(m=>m.user_id===user.id)){state.relationshipId=inv.relationship_id;save();showApp();return}
   if(members.length>=max){alert('Este relacionamento já atingiu o limite de membros.');return}
-  let color=state.cor||'#ff6b6b'; const used=new Set(members.map(m=>m.color)); const palette=['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'];
+  let color=state.cor||'#ff6b6b'; const used=new Set(members.map(m=>m.cor)); const palette=['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'];
   if(used.has(color)) color=palette.find(x=>!used.has(x))||color;
-  const {error:ae}=await sb.from('relationship_members').insert({relationship_id:inv.relationship_id,user_id:user.id,color});
+  const {error:ae}=await sb.from('relationship_members').insert({relationship_id:inv.relationship_id,user_id:user.id,cor:color});
   if(ae){alert('Não foi possível entrar no relacionamento: '+ae.message);return}
   state.relationshipId=inv.relationship_id;state.tipo=String(relType).toLowerCase()==='trisal'?'Trisal':'Casal';state.cor=color;delete state.pendingInvite;save();document.documentElement.style.setProperty('--me',color);showApp();alert('Convite aceito. Vocês agora estão conectados no Acasalador.')}
 
