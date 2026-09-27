@@ -22,7 +22,7 @@
 <button type='button' class='linkbtn' onclick='showLogin()'>Já tenho conta</button>
 <p class='small'>Versão de testes: os dados ainda ficam neste aparelho. Não use senha bancária ou uma senha importante.</p></div></section>
 <section id='onboard' class='hide'><button class='btn ghost' onclick='prev()'>← Voltar</button><div class='dots' id='dots'></div><div id='q'></div></section>
-<section id='app' class='hide'><div class='brand'>A<i>casal</i>ador</div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button class='btn primary' onclick='shareInvite()'>Compartilhar convite</button></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
+<section id='app' class='hide'><div class='brand'>A<i>casal</i>ador</div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button type='button' class='btn primary' onclick='shareInvite(this)'>Compartilhar convite</button><div id='inviteResult'></div></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
 <section id='feature' class='hide'></section>
 </main><div class='bottom hide' id='bottom'><div><button onclick='home()'>🏠</button><button onclick="page('agenda')">📅</button><button onclick="page('lembretes')">🔔</button><button onclick="page('perfil')">👥</button></div></div>
 <script>
@@ -72,7 +72,7 @@ function perfil(){return `<h2>Perfil</h2><div class='card'>
 <label class='small'>E-mail</label><input class='field' id='pfEmail' autocomplete='email' value='${esc(state.email||"")}'>
 <label class='small'>Sua cor</label><input class='field' id='pfColor' type='color' value='${state.cor||"#ff6b6b"}'>
 <button class='btn primary' onclick='saveProfile()'>Salvar alterações</button>
-<hr class='sep'><button class='btn ghost' onclick='shareInvite()'>Convidar outra pessoa</button>
+<hr class='sep'><button type='button' class='btn ghost' onclick='shareInvite(this)'>Convidar outra pessoa</button><div id='inviteResultProfile'></div>
 <button class='btn danger' onclick='logout()'>Sair da conta</button>
 </div>`}
 
@@ -138,16 +138,22 @@ async function ensureRelationship(){
   if(rm){alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
   state.relationshipId=rel.id; save(); return rel.id
 }
-async function shareInvite(){
-  const {data:{user}}=await sb.auth.getUser(); if(!user){alert('Entre na sua conta primeiro.');return}
-  const relationshipId=await ensureRelationship(); if(!relationshipId)return;
-  const code=crypto.randomUUID().replace(/-/g,'').slice(0,10).toUpperCase();
-  const {error}=await sb.from('relationship_invites').insert({relationship_id:relationshipId,codigo:code,created_by:user.id});
-  if(error){alert('Não foi possível criar o convite: '+error.message);return}
-  const url=location.origin+location.pathname+'?convite='+encodeURIComponent(code);
-  const msg=`${state.name||'Alguém'} convidou você para entrar no Acasalador. Código: ${code}\n${url}`;
-  if(navigator.share){try{await navigator.share({title:'Convite Acasalador',text:msg,url});return}catch(e){}}
-  try{await navigator.clipboard.writeText(msg);alert('Convite copiado! Código: '+code)}catch(e){prompt('Copie o convite:',msg)}
+async function shareInvite(btn){
+  const old=btn?.textContent; if(btn){btn.disabled=true;btn.textContent='Gerando convite...'}
+  try{
+    const {data:{user},error:ue}=await sb.auth.getUser(); if(ue||!user)throw new Error('Entre na sua conta novamente.');
+    const relationshipId=await ensureRelationship(); if(!relationshipId)throw new Error('Não foi possível localizar ou criar o relacionamento.');
+    const code=crypto.randomUUID().replace(/-/g,'').slice(0,10).toUpperCase();
+    const payload={relationship_id:relationshipId,codigo:code,created_by:user.id};
+    const {error}=await sb.from('relationship_invites').insert(payload); if(error)throw error;
+    const base=location.protocol==='file:'?'https://acasaldor.leodition.com.br/':location.origin+location.pathname;
+    const url=base+'?convite='+encodeURIComponent(code);
+    const msg=`${state.name||'Alguém'} convidou você para entrar no Acasalador. Código: ${code}\n${url}`;
+    const box=el('inviteResult')||el('inviteResultProfile');
+    if(box)box.innerHTML=`<div class="card"><b>Convite criado 💌</b><p class="small">Código</p><h2 style="letter-spacing:2px">${esc(code)}</h2><input class="field" readonly value="${esc(url)}"><button type="button" class="btn ghost" onclick="navigator.clipboard?.writeText('${esc(msg).replace(/'/g,"\\'")}')">Copiar convite</button></div>`;
+    try{if(navigator.share)await navigator.share({title:'Convite Acasalador',text:msg,url});else if(navigator.clipboard)await navigator.clipboard.writeText(msg)}catch(_){}
+  }catch(e){console.error(e);alert('Erro ao criar convite: '+(e?.message||e))}
+  finally{if(btn){btn.disabled=false;btn.textContent=old||'Compartilhar convite'}}
 }
 async function acceptInvite(code){
   code=(code||'').trim().toUpperCase(); if(!code)return;
