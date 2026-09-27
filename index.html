@@ -144,7 +144,7 @@ async function shareInvite(btn){
     const {data:{user},error:ue}=await sb.auth.getUser(); if(ue||!user)throw new Error('Entre na sua conta novamente.');
     const relationshipId=await ensureRelationship(); if(!relationshipId)throw new Error('Não foi possível localizar ou criar o relacionamento.');
     const code=crypto.randomUUID().replace(/-/g,'').slice(0,10).toUpperCase();
-    const payload={relationship_id:relationshipId,codigo:code,created_by:user.id};
+    const payload={relationship_id:relationshipId,codigo:code,criado_por:user.id};
     const {error}=await sb.from('relationship_invites').insert(payload); if(error)throw error;
     const base=location.protocol==='file:'?'https://acasalador.leodition.com.br/':location.origin+location.pathname;
     const url=base+'?convite='+encodeURIComponent(code);
