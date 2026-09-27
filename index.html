@@ -132,7 +132,7 @@ async function ensureRelationship(){
   if(me){console.error(me);alert('Erro ao consultar relacionamento: '+me.message);return null}
   if(member){state.relationshipId=member.relationship_id; if(member.color)state.cor=member.color; save(); return member.relationship_id}
   const type=(state.tipo||'Casal').toLowerCase()==='trisal'?'trisal':'casal';
-  const {data:rel,error:re}=await sb.from('relationships').insert({type,tipo:type}).select('id').single();
+  const {data:rel,error:re}=await sb.from('relationships').insert({type,tipo:type,criado_por:user.id}).select('id').single();
   if(re){alert('Não foi possível criar o relacionamento: '+re.message);return null}
   const {error:rm}=await sb.from('relationship_members').insert({relationship_id:rel.id,user_id:user.id,color:state.cor||'#ff6b6b'});
   if(rm){console.error(rm);alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
