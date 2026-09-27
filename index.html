@@ -1,4 +1,4 @@
-<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name='theme-color' content='#171717'><link rel='manifest' href='manifest.webmanifest'><title>Acasalador</title><style>
+<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name='theme-color' content='#171717'><link rel='manifest' href='manifest.webmanifest'><title>Acasalador</title><script src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'></script><style>
 :root{--me:#ff6b6b;--bg:#f7f4f1;--ink:#1f1d1b;--mut:#777;--card:#fff;--line:#e9e2dc}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}main{max-width:760px;margin:auto;padding:20px 16px 90px}.brand{font-size:32px;font-weight:950;letter-spacing:-1.5px}.brand i{font-style:normal;color:var(--me)}.sub{color:var(--mut);margin:3px 0 24px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;margin:12px 0;box-shadow:0 6px 20px #00000008}.field{width:100%;padding:13px;border:1px solid var(--line);border-radius:13px;margin:6px 0;background:#fff;font:inherit}.btn{border:0;border-radius:13px;padding:13px 16px;font-weight:800;font:inherit;cursor:pointer}.primary{background:var(--me);color:#fff}.ghost{background:#eee9e5}.row{display:flex;gap:8px;flex-wrap:wrap}.hide{display:none}.choice{width:100%;text-align:left;background:white;border:1px solid var(--line);padding:15px;border-radius:14px;margin:6px 0}.dots{display:flex;gap:6px;margin:15px 0}.dot{width:8px;height:8px;background:#ddd;border-radius:50%}.dot.on{background:var(--me)}.colors{display:flex;gap:12px;flex-wrap:wrap}.color{width:42px;height:42px;border-radius:50%;border:4px solid white;box-shadow:0 0 0 1px #ddd}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tile{background:#fff;border:1px solid var(--line);border-radius:18px;padding:17px;text-align:left;font-weight:800}.tile b{font-size:25px;display:block;margin-bottom:8px}.tag{display:inline-block;border-radius:999px;padding:5px 9px;background:#f1ece8;font-size:12px}.month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.day{background:#fff;border:1px solid var(--line);border-radius:10px;min-height:58px;padding:6px;font-size:12px}.mark{width:7px;height:7px;background:var(--me);border-radius:50%;display:inline-block;margin:2px}.moneytabs{display:flex;gap:8px}.moneytabs button{flex:1}.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:8px;display:flex;justify-content:center}.bottom div{max-width:760px;width:100%;display:flex;justify-content:space-around}.bottom button{border:0;background:none;font-size:20px}.notice{border-left:4px solid var(--me);padding-left:12px}.small{font-size:12px;color:var(--mut)}.danger{background:#a62828;color:#fff}
 .sep{border:0;border-top:1px solid var(--line);margin:16px 0}.moneySummary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
 .stat{background:#f5f1ed;border-radius:14px;padding:12px}.stat b{display:block;font-size:19px}.cat{border:1px solid var(--line);border-radius:16px;padding:12px;margin:9px 0}
@@ -26,6 +26,9 @@
 <section id='feature' class='hide'></section>
 </main><div class='bottom hide' id='bottom'><div><button onclick='home()'>🏠</button><button onclick="page('agenda')">📅</button><button onclick="page('lembretes')">🔔</button><button onclick="page('perfil')">👥</button></div></div>
 <script>
+const SUPABASE_URL='https://nwsgvgsofhfycykopjpe.supabase.co';
+const SUPABASE_KEY='sb_publishable_P6u3sXOCVf7k2gTxheBbPQ_SHMd9QT8';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let step=0;const state=JSON.parse(localStorage.getItem('acasalador')||'{}');const qs=[
 {title:'Como é a relação de vocês?',opts:['Casal','Trisal'],key:'tipo'},
 {title:'Há quanto tempo vocês estão juntos?',input:'Ex.: 3 anos e 4 meses',key:'tempo'},
@@ -33,14 +36,15 @@ let step=0;const state=JSON.parse(localStorage.getItem('acasalador')||'{}');cons
 {title:'Escolha sua cor',colors:['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'],key:'cor'}];
 function save(){localStorage.setItem('acasalador',JSON.stringify(state))}
 function el(id){return document.getElementById(id)}
-function start(){
+async function start(){
   const nameEl=el('name'), phoneEl=el('phone'), emailEl=el('email'), passEl=el('pass');
-  if(!nameEl||!phoneEl||!emailEl||!passEl){alert('Erro ao carregar o cadastro. Atualize a página.');return}
   const n=nameEl.value.trim(), ph=phoneEl.value.trim(), em=emailEl.value.trim(), pw=passEl.value;
   if(!n||!ph||!em||!pw){alert('Preencha nome, celular, e-mail e senha.');return}
-  state.name=n; state.nick=n.split(' ')[0]; state.phone=ph; state.email=em; state.password=pw;
-  state.account=true; state.logged=true; save();
-  el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
+  const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{data:{name:n,phone:ph,nick:n.split(' ')[0]}}});
+  if(error){alert('Não foi possível criar a conta: '+error.message);return}
+  state.name=n; state.nick=n.split(' ')[0]; state.phone=ph; state.email=em; state.account=true; save();
+  if(!data.session){alert('Conta criada. Confirme seu e-mail e depois entre no Acasalador.');showLogin();return}
+  state.logged=true; save(); el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
 }
 function renderQ(){el('dots').innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors)h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' style='background:${c}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`;el('q').innerHTML=h+'</div>'}
 function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else showApp()}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
@@ -108,6 +112,7 @@ function doneReminder(i){state.reminders[i].done=!state.reminders[i].done;save()
 
 async function shareInvite(){let code=Math.random().toString(36).slice(2,10).toUpperCase(),url=location.origin+location.pathname+'?convite='+code,text=`${state.name||'Alguém'} convidou você para entrar no Acasalador. ${url}`;if(navigator.share){try{await navigator.share({title:'Convite Acasalador',text,url})}catch(e){}}else{navigator.clipboard?.writeText(text);alert('Convite copiado!')}}
 if(state.cor)document.documentElement.style.setProperty('--me',state.cor);
-if(state.account){showLogin()}
-if(state.account&&state.logged&&state.tipo&&state.cor){el('login').classList.add('hide');showApp()}
+showLogin();
+(async()=>{const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.tipo&&state.cor)showApp();else{el('onboard').classList.remove('hide');renderQ()}}})();
+sb.auth.onAuthStateChange((_event,session)=>{if(!session)state.logged=false;save()});
 </script></body></html>
