@@ -47,7 +47,7 @@ async function start(){
   state.logged=true; save(); el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
 }
 function renderQ(){el('dots').innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors)h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' style='background:${c}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`;el('q').innerHTML=h+'</div>'}
-function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else showApp()}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
+async function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else{await ensureRelationship();showApp()}}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
 function showApp(){el('onboard').classList.add('hide');el('app').classList.remove('hide');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.name||'você'}. ${state.tipo||'Relacionamento'} em modo organização.`}function home(){el('feature').classList.add('hide');el('app').classList.remove('hide')}
 function page(p){el('app').classList.add('hide');el('feature').classList.remove('hide');let h=`<button class='btn ghost' onclick='home()'>← Início</button>`;if(p==='agenda')h+=agenda();if(p==='dinheiro')h+=dinheiro();if(p==='lugares')h+=lugares();if(p==='lembretes')h+=lembretes();if(p==='compras')h+=compras();if(p==='perfil')h+=perfil();el('feature').innerHTML=h}
 function agenda(){let d=['D','S','T','Q','Q','S','S'],cells=d.map(x=>`<b style='text-align:center'>${x}</b>`).join('');for(let i=1;i<=30;i++)cells+=`<div class='day'>${i}${[4,11,19].includes(i)?'<br><i class="mark"></i>':''}</div>`;return `<h2>Nossa agenda</h2><div class='card'><div class='row'><span class='tag'>Setembro 2026</span><span class='tag'>Sua cor identifica seus eventos</span></div><div class='month'>${cells}</div></div><div class='card'><h3>Disponibilidade de trabalho</h3><p class='small'>Cadastre dias e horários de trabalho. Ao criar um evento conflitante, o sistema avisará antes de confirmar.</p><button class='btn primary'>+ Cadastrar horário</button></div>`}
@@ -126,9 +126,50 @@ function saveReminder(){let t=remText.value.trim();if(!t)return;state.reminders=
 function renderReminders(){let a=state.reminders||[];return a.length?a.map((r,i)=>`<div class='card'><b>${esc(r.text)}</b><div class='small'>${esc(r.who)} • ${r.mode==='defined'?r.times.join(', '):'a cada '+r.mode+' min'}${r.until?' • até concluir':''}</div><button class='btn ghost' onclick='doneReminder(${i})'>${r.done?'Reabrir':'Concluir'}</button></div>`).join(''):`<div class='card small'>Nenhum lembrete criado.</div>`}
 function doneReminder(i){state.reminders[i].done=!state.reminders[i].done;save();page('lembretes')}
 
-async function shareInvite(){let code=Math.random().toString(36).slice(2,10).toUpperCase(),url=location.origin+location.pathname+'?convite='+code,text=`${state.name||'Alguém'} convidou você para entrar no Acasalador. ${url}`;if(navigator.share){try{await navigator.share({title:'Convite Acasalador',text,url})}catch(e){}}else{navigator.clipboard?.writeText(text);alert('Convite copiado!')}}
+async function ensureRelationship(){
+  const {data:{user}}=await sb.auth.getUser(); if(!user)return null;
+  let {data:member,error:me}=await sb.from('relationship_members').select('relationship_id,color').eq('user_id',user.id).limit(1).maybeSingle();
+  if(me){console.error(me);return null}
+  if(member){state.relationshipId=member.relationship_id; if(member.color)state.cor=member.color; save(); return member.relationship_id}
+  const type=(state.tipo||'Casal').toLowerCase()==='trisal'?'trisal':'casal';
+  const {data:rel,error:re}=await sb.from('relationships').insert({type}).select('id').single();
+  if(re){alert('Não foi possível criar o relacionamento: '+re.message);return null}
+  const {error:rm}=await sb.from('relationship_members').insert({relationship_id:rel.id,user_id:user.id,color:state.cor||'#ff6b6b'});
+  if(rm){alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
+  state.relationshipId=rel.id; save(); return rel.id
+}
+async function shareInvite(){
+  const {data:{user}}=await sb.auth.getUser(); if(!user){alert('Entre na sua conta primeiro.');return}
+  const relationshipId=await ensureRelationship(); if(!relationshipId)return;
+  const code=crypto.randomUUID().replace(/-/g,'').slice(0,10).toUpperCase();
+  const {error}=await sb.from('relationship_invites').insert({relationship_id:relationshipId,codigo:code,created_by:user.id});
+  if(error){alert('Não foi possível criar o convite: '+error.message);return}
+  const url=location.origin+location.pathname+'?convite='+encodeURIComponent(code);
+  const msg=`${state.name||'Alguém'} convidou você para entrar no Acasalador. Código: ${code}\n${url}`;
+  if(navigator.share){try{await navigator.share({title:'Convite Acasalador',text:msg,url});return}catch(e){}}
+  try{await navigator.clipboard.writeText(msg);alert('Convite copiado! Código: '+code)}catch(e){prompt('Copie o convite:',msg)}
+}
+async function acceptInvite(code){
+  code=(code||'').trim().toUpperCase(); if(!code)return;
+  const {data:{user}}=await sb.auth.getUser(); if(!user){state.pendingInvite=code;save();return}
+  const {data:inv,error:ie}=await sb.from('relationship_invites').select('id,relationship_id,codigo').eq('codigo',code).maybeSingle();
+  if(ie||!inv){alert('Convite inválido ou indisponível.');return}
+  const {data:rel,error:re}=await sb.from('relationships').select('id,type').eq('id',inv.relationship_id).single();
+  if(re){alert('Não foi possível abrir o relacionamento.');return}
+  const {data:members,error:ce}=await sb.from('relationship_members').select('user_id,color').eq('relationship_id',inv.relationship_id);
+  if(ce){alert('Não foi possível verificar os membros.');return}
+  const max=String(rel.type).toLowerCase()==='trisal'?3:2;
+  if(members.some(m=>m.user_id===user.id)){state.relationshipId=inv.relationship_id;save();showApp();return}
+  if(members.length>=max){alert('Este relacionamento já atingiu o limite de membros.');return}
+  let color=state.cor||'#ff6b6b'; const used=new Set(members.map(m=>m.color)); const palette=['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'];
+  if(used.has(color)) color=palette.find(x=>!used.has(x))||color;
+  const {error:ae}=await sb.from('relationship_members').insert({relationship_id:inv.relationship_id,user_id:user.id,color});
+  if(ae){alert('Não foi possível entrar no relacionamento: '+ae.message);return}
+  state.relationshipId=inv.relationship_id;state.tipo=String(rel.type).toLowerCase()==='trisal'?'Trisal':'Casal';state.cor=color;delete state.pendingInvite;save();document.documentElement.style.setProperty('--me',color);showApp();alert('Convite aceito. Vocês agora estão conectados no Acasalador.')}
+
 if(state.cor)document.documentElement.style.setProperty('--me',state.cor);
+const inviteFromUrl=new URLSearchParams(location.search).get('convite'); if(inviteFromUrl){state.pendingInvite=inviteFromUrl.toUpperCase();save();}
 showLogin();
-(async()=>{const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.tipo&&state.cor)showApp();else{el('onboard').classList.remove('hide');renderQ()}}})();
+(async()=>{const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.tipo&&state.cor){await ensureRelationship();showApp()}else{el('onboard').classList.remove('hide');renderQ()}}})();
 sb.auth.onAuthStateChange((_event,session)=>{if(!session)state.logged=false;save()});
 </script></body></html>
