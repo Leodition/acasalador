@@ -46,7 +46,8 @@ async function start(){
   if(!data.session){alert('Conta criada. Confirme seu e-mail e depois entre no Acasalador.');showLogin();return}
   state.logged=true; save(); el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
 }
-function renderQ(){el('dots').innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors)h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' style='background:${c}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`;el('q').innerHTML=h+'</div>'}
+async function getUsedColors(){const {data:{user}}=await sb.auth.getUser();if(!user)return[];let rid=state.relationshipId;if(!rid&&state.pendingInvite){const {data:i}=await sb.from('relationship_invites').select('relationship_id').eq('codigo',state.pendingInvite).maybeSingle();rid=i?.relationship_id}if(!rid)return[];const {data}=await sb.from('relationship_members').select('cor').eq('relationship_id',rid);return(data||[]).map(x=>x.cor).filter(Boolean)}
+async function renderQ(){el('dots').innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors){const used=await getUsedColors();h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' title="${used.includes(c)?'Cor já usada':'Escolher cor'}" ${used.includes(c)?'disabled':''} style='background:${c};${used.includes(c)?'opacity:.2;cursor:not-allowed':''}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`}el('q').innerHTML=h+'</div>'}
 async function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else{await ensureRelationship();showApp()}}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
 function showApp(){el('onboard').classList.add('hide');el('app').classList.remove('hide');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.name||'você'}. ${state.tipo||'Relacionamento'} em modo organização.`}function home(){el('feature').classList.add('hide');el('app').classList.remove('hide')}
 function page(p){el('app').classList.add('hide');el('feature').classList.remove('hide');let h=`<button class='btn ghost' onclick='home()'>← Início</button>`;if(p==='agenda')h+=agenda();if(p==='dinheiro')h+=dinheiro();if(p==='lugares')h+=lugares();if(p==='lembretes')h+=lembretes();if(p==='compras')h+=compras();if(p==='perfil')h+=perfil();el('feature').innerHTML=h}
@@ -87,9 +88,10 @@ async function doLogin(){
   if(!id.includes('@')){alert('Por enquanto, entre com seu e-mail. O login por celular será ativado depois.');return}
   const {data,error}=await sb.auth.signInWithPassword({email:id,password:p});
   if(error){alert('Não foi possível entrar: '+error.message);return}
-  await hydrateUser(data.user);
+  await hydrateUser(data.user); await loadCloudState(data.user);
   state.account=true; state.logged=true; save();
-  el('login').classList.add('hide'); showApp();
+  el('login').classList.add('hide');
+  if(state.pendingInvite)await acceptInvite(state.pendingInvite); else showApp();
 }
 async function logout(){
   await sb.auth.signOut();
@@ -100,12 +102,23 @@ async function logout(){
 async function hydrateUser(user){
   if(!user)return;
   const m=user.user_metadata||{};
+  const {data:p}=await sb.from('profiles').select('nome,como_chamar,celular,cor,onboarding_concluido').eq('id',user.id).maybeSingle();
   state.email=user.email||state.email;
-  state.name=m.name||state.name||user.email?.split('@')[0];
-  state.nick=m.nick||state.nick||state.name;
-  state.phone=m.phone||state.phone||'';
-  delete state.password;
-  save();
+  state.name=p?.nome||m.name||user.email?.split('@')[0]||state.name;
+  state.nick=p?.como_chamar||m.nick||state.name;
+  state.phone=p?.celular||m.phone||'';
+  if(p?.cor)state.cor=p.cor;
+  if(p?.onboarding_concluido)state.onboardingDone=true;
+  delete state.password; save();
+}
+async function loadCloudState(user){
+  if(!user)return;
+  const {data:member}=await sb.from('relationship_members').select('relationship_id,cor').eq('user_id',user.id).limit(1).maybeSingle();
+  if(!member)return;
+  state.relationshipId=member.relationship_id; if(member.cor)state.cor=member.cor;
+  const {data:rel}=await sb.from('relationships').select('tipo').eq('id',member.relationship_id).maybeSingle();
+  if(rel?.tipo)state.tipo=rel.tipo==='trisal'?'Trisal':'Casal';
+  state.onboardingDone=true; document.documentElement.style.setProperty('--me',state.cor||'#ff6b6b'); save();
 }
 function saveProfile(){state.name=pfName.value.trim();state.nick=pfNick.value.trim();state.loveName=pfLove.value.trim();state.phone=pfPhone.value.trim();state.email=pfEmail.value.trim();state.cor=pfColor.value;document.documentElement.style.setProperty('--me',state.cor);save();alert('Perfil atualizado.');page('perfil')}
 function moneyMode(m){moneyArea.innerHTML=m==='individual'?moneyIndividual():`<div class='card'><h3>Conjunto</h3><p class='small'>A negociação de despesas entre contas será ativada quando conectarmos o banco online.</p></div>`}
@@ -136,7 +149,7 @@ async function ensureRelationship(){
   if(re){alert('Não foi possível criar o relacionamento: '+re.message);return null}
   const {error:rm}=await sb.from('relationship_members').insert({relationship_id:rel.id,user_id:user.id,cor:state.cor||'#ff6b6b'});
   if(rm){console.error(rm);alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
-  state.relationshipId=rel.id; save(); return rel.id
+  state.relationshipId=rel.id; await sb.from('profiles').update({cor:state.cor||'#ff6b6b',onboarding_concluido:true}).eq('id',user.id); state.onboardingDone=true; save(); return rel.id
 }
 async function shareInvite(btn){
   const old=btn?.textContent; if(btn){btn.disabled=true;btn.textContent='Gerando convite...'}
@@ -171,11 +184,11 @@ async function acceptInvite(code){
   if(used.has(color)) color=palette.find(x=>!used.has(x))||color;
   const {error:ae}=await sb.from('relationship_members').insert({relationship_id:inv.relationship_id,user_id:user.id,cor:color});
   if(ae){alert('Não foi possível entrar no relacionamento: '+ae.message);return}
-  state.relationshipId=inv.relationship_id;state.tipo=String(relType).toLowerCase()==='trisal'?'Trisal':'Casal';state.cor=color;delete state.pendingInvite;save();document.documentElement.style.setProperty('--me',color);showApp();alert('Convite aceito. Vocês agora estão conectados no Acasalador.')}
+  state.relationshipId=inv.relationship_id;state.tipo=String(relType).toLowerCase()==='trisal'?'Trisal':'Casal';state.cor=color;state.onboardingDone=true;await sb.from('profiles').update({cor:color,onboarding_concluido:true}).eq('id',user.id);delete state.pendingInvite;save();document.documentElement.style.setProperty('--me',color);showApp();alert('Convite aceito. Vocês agora estão conectados no Acasalador.')}
 
 if(state.cor)document.documentElement.style.setProperty('--me',state.cor);
 const inviteFromUrl=new URLSearchParams(location.search).get('convite'); if(inviteFromUrl){state.pendingInvite=inviteFromUrl.toUpperCase();save();}
 showLogin();
-(async()=>{const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.tipo&&state.cor){await ensureRelationship();showApp()}else{el('onboard').classList.remove('hide');renderQ()}}})();
+(async()=>{const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);await loadCloudState(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.onboardingDone||state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');await renderQ()}}})();
 sb.auth.onAuthStateChange((_event,session)=>{if(!session)state.logged=false;save()});
 </script></body></html>
