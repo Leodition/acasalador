@@ -80,17 +80,33 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 function showCreate(){el('loginBox').classList.add('hide');el('createBox').classList.remove('hide')}
 function showLogin(){el('createBox').classList.add('hide');el('loginBox').classList.remove('hide')}
 function normPhone(v){return String(v||'').replace(/\D/g,'')}
-function doLogin(){
+async function doLogin(){
   const id=el('loginId').value.trim();
   const p=el('loginPass').value;
-  if(!id||!p){alert('Informe seu e-mail ou celular e sua senha.');return}
-  if(!state.account){alert('Ainda não existe uma conta cadastrada neste aparelho. Clique em “Ainda não tenho conta” para criar sua conta.');return}
-  const emailOk=id.toLowerCase()===String(state.email||'').trim().toLowerCase();
-  const phoneOk=normPhone(id)!=='' && normPhone(id)===normPhone(state.phone);
-  if(!(emailOk||phoneOk)||p!==state.password){alert('E-mail/celular ou senha incorretos.');return}
-  state.logged=true; save(); el('login').classList.add('hide'); showApp();
+  if(!id||!p){alert('Informe seu e-mail e sua senha.');return}
+  if(!id.includes('@')){alert('Por enquanto, entre com seu e-mail. O login por celular será ativado depois.');return}
+  const {data,error}=await sb.auth.signInWithPassword({email:id,password:p});
+  if(error){alert('Não foi possível entrar: '+error.message);return}
+  await hydrateUser(data.user);
+  state.account=true; state.logged=true; save();
+  el('login').classList.add('hide'); showApp();
 }
-function logout(){state.logged=false;save();el('feature').classList.add('hide');el('app').classList.add('hide');el('bottom').classList.add('hide');el('login').classList.remove('hide');showLogin();el('loginPass').value=''}
+async function logout(){
+  await sb.auth.signOut();
+  state.logged=false; save();
+  el('feature').classList.add('hide'); el('app').classList.add('hide'); el('bottom').classList.add('hide');
+  el('login').classList.remove('hide'); showLogin(); el('loginPass').value='';
+}
+async function hydrateUser(user){
+  if(!user)return;
+  const m=user.user_metadata||{};
+  state.email=user.email||state.email;
+  state.name=m.name||state.name||user.email?.split('@')[0];
+  state.nick=m.nick||state.nick||state.name;
+  state.phone=m.phone||state.phone||'';
+  delete state.password;
+  save();
+}
 function saveProfile(){state.name=pfName.value.trim();state.nick=pfNick.value.trim();state.loveName=pfLove.value.trim();state.phone=pfPhone.value.trim();state.email=pfEmail.value.trim();state.cor=pfColor.value;document.documentElement.style.setProperty('--me',state.cor);save();alert('Perfil atualizado.');page('perfil')}
 function moneyMode(m){moneyArea.innerHTML=m==='individual'?moneyIndividual():`<div class='card'><h3>Conjunto</h3><p class='small'>A negociação de despesas entre contas será ativada quando conectarmos o banco online.</p></div>`}
 function moneyIndividual(){let inc=state.moneyIncome||0, cats=state.moneyCats||[];let spent=cats.reduce((s,c)=>s+c.items.reduce((a,x)=>a+(+x.value||0),0),0);return `<div class='card'><h3>Resumo individual 🔒</h3>
