@@ -25,7 +25,7 @@ body:has(#login:not(.hide)){background:#160f12;color:#faf3f5;min-height:100vh;co
 <input class='field' id='loginPass' autocomplete='current-password' type='password' placeholder='Senha' onkeydown="if(event.key==='Enter')doLogin()">
 <button type='button' class='btn primary' onclick='doLogin()'>Entrar</button>
 <button type='button' class='linkbtn' onclick='showCreate()'>Ainda não tenho conta</button>
-<p class='small'>O navegador/celular pode oferecer preenchimento automático e desbloqueio do gerenciador de senhas.</p></div>
+<p><a class='linkbtn' href='?demo=1'>Explorar sem criar conta →</a></p><p class='small'>O navegador/celular pode oferecer preenchimento automático e desbloqueio do gerenciador de senhas.</p></div>
 <div class='card hide' id='createBox'><h2>Crie sua conta</h2>
 <input class='field' id='name' autocomplete='name' placeholder='Seu nome completo'>
 
@@ -36,21 +36,23 @@ body:has(#login:not(.hide)){background:#160f12;color:#faf3f5;min-height:100vh;co
 <button type='button' class='linkbtn' onclick='showLogin()'>Já tenho conta</button>
 <p class='small'>Versão de testes: os dados ainda ficam neste aparelho. Não use senha bancária ou uma senha importante.</p></div></section>
 <section id='onboard' class='hide'><button class='btn ghost' onclick='prev()'>← Voltar</button><div class='dots' id='dots'></div><div id='q'></div></section>
-<section id='app' class='hide'><div class='brand'>Te<i>Falei</i></div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button type='button' class='btn primary' onclick='shareInvite(this)'>Compartilhar convite</button><div id='inviteResult'></div></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
+<section id='app' class='hide'><div id='demoNotice' class='card hide'><b>Modo demonstração</b><p>Explore as telas com dados de exemplo. As alterações são temporárias.</p><a href='./' class='linkbtn'>Sair da demonstração</a></div><div class='brand'>Te<i>Falei</i></div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button type='button' class='btn primary' onclick='shareInvite(this)'>Compartilhar convite</button><div id='inviteResult'></div></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
 <section id='feature' class='hide'></section>
 </main><div class='bottom hide' id='bottom'><div><button onclick='home()'>🏠</button><button onclick="page('agenda')">📅</button><button onclick="page('lembretes')">🔔</button><button onclick="page('perfil')">👥</button></div></div>
 <script>
 const SUPABASE_URL='https://nwsgvgsofhfycykopjpe.supabase.co';
 const SUPABASE_KEY='sb_publishable_P6u3sXOCVf7k2gTxheBbPQ_SHMd9QT8';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-let step=0;const state=JSON.parse(localStorage.getItem('acasalador')||'{}');const qs=[
+const demoMode=new URLSearchParams(location.search).get('demo')==='1';
+const sb=demoMode?null:window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let step=0;const state=demoMode?{name:'Visitante',nick:'Visitante',tipo:'Casal',cor:'#687780',moneyCats:[],reminders:[]}:JSON.parse(localStorage.getItem('acasalador')||'{}');const qs=[
 {title:'Como é a relação de vocês?',opts:['Casal','Trisal'],key:'tipo'},
 {title:'Há quanto tempo vocês estão juntos?',input:'Ex.: 3 anos e 4 meses',key:'tempo'},
 {title:'Vocês moram juntos?',opts:['Sim','Não','Às vezes / parcialmente'],key:'moram'},
 {title:'Escolha sua cor',colors:['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'],key:'cor'}];
-function save(){localStorage.setItem('acasalador',JSON.stringify(state))}
+function save(){if(!demoMode)localStorage.setItem('acasalador',JSON.stringify(state))}
 function el(id){return document.getElementById(id)}
 async function start(){
+  if(demoMode)return;
   const nameEl=el('name'), phoneEl=el('phone'), emailEl=el('email'), passEl=el('pass');
   const n=nameEl.value.trim(), ph=phoneEl.value.trim(), em=emailEl.value.trim(), pw=passEl.value;
   if(!n||!ph||!em||!pw){alert('Preencha nome, celular, e-mail e senha.');return}
@@ -60,7 +62,7 @@ async function start(){
   if(!data.session){alert('Conta criada. Confirme seu e-mail e depois entre no TeFalei.');showLogin();return}
   state.logged=true; save(); el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
 }
-async function getUsedColors(){const {data:{user}}=await sb.auth.getUser();if(!user)return[];let rid=state.relationshipId;if(!rid&&state.pendingInvite){const {data:i}=await sb.from('relationship_invites').select('relationship_id').eq('codigo',state.pendingInvite).maybeSingle();rid=i?.relationship_id}if(!rid)return[];const {data}=await sb.from('relationship_members').select('cor').eq('relationship_id',rid);return(data||[]).map(x=>x.cor).filter(Boolean)}
+async function getUsedColors(){if(demoMode)return[];const {data:{user}}=await sb.auth.getUser();if(!user)return[];let rid=state.relationshipId;if(!rid&&state.pendingInvite){const {data:i}=await sb.from('relationship_invites').select('relationship_id').eq('codigo',state.pendingInvite).maybeSingle();rid=i?.relationship_id}if(!rid)return[];const {data}=await sb.from('relationship_members').select('cor').eq('relationship_id',rid);return(data||[]).map(x=>x.cor).filter(Boolean)}
 async function renderQ(){el('dots').innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors){const used=await getUsedColors();h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' title="${used.includes(c)?'Cor já usada':'Escolher cor'}" ${used.includes(c)?'disabled':''} style='background:${c};${used.includes(c)?'opacity:.2;cursor:not-allowed':''}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`}el('q').innerHTML=h+'</div>'}
 async function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else{await ensureRelationship();showApp()}}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
 function showApp(){el('onboard').classList.add('hide');el('app').classList.remove('hide');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.name||'você'}. ${state.tipo||'Relacionamento'} em modo organização.`}function home(){el('feature').classList.add('hide');el('app').classList.remove('hide')}
@@ -96,6 +98,7 @@ function showCreate(){el('loginBox').classList.add('hide');el('createBox').class
 function showLogin(){el('createBox').classList.add('hide');el('loginBox').classList.remove('hide')}
 function normPhone(v){return String(v||'').replace(/\D/g,'')}
 async function doLogin(){
+  if(demoMode)return;
   const id=el('loginId').value.trim();
   const p=el('loginPass').value;
   if(!id||!p){alert('Informe seu e-mail e sua senha.');return}
@@ -108,6 +111,7 @@ async function doLogin(){
   if(state.pendingInvite)await acceptInvite(state.pendingInvite); else showApp();
 }
 async function logout(){
+  if(demoMode){location.href=location.pathname;return}
   await sb.auth.signOut();
   state.logged=false; save();
   el('feature').classList.add('hide'); el('app').classList.add('hide'); el('bottom').classList.add('hide');
@@ -154,6 +158,7 @@ function renderReminders(){let a=state.reminders||[];return a.length?a.map((r,i)
 function doneReminder(i){state.reminders[i].done=!state.reminders[i].done;save();page('lembretes')}
 
 async function ensureRelationship(){
+  if(demoMode)return null;
   const {data:{user}}=await sb.auth.getUser(); if(!user)return null;
   let {data:member,error:me}=await sb.from('relationship_members').select('relationship_id,cor').eq('user_id',user.id).limit(1).maybeSingle();
   if(me){console.error(me);alert('Erro ao consultar relacionamento: '+me.message);return null}
@@ -166,6 +171,7 @@ async function ensureRelationship(){
   state.relationshipId=rel.id; await sb.from('profiles').update({cor:state.cor||'#ff6b6b',onboarding_concluido:true}).eq('id',user.id); state.onboardingDone=true; save(); return rel.id
 }
 async function shareInvite(btn){
+  if(demoMode){alert('Crie uma conta para conectar participantes por convite.');return}
   const old=btn?.textContent; if(btn){btn.disabled=true;btn.textContent='Gerando convite...'}
   try{
     const {data:{user},error:ue}=await sb.auth.getUser(); if(ue||!user)throw new Error('Entre na sua conta novamente.');
@@ -183,6 +189,7 @@ async function shareInvite(btn){
   finally{if(btn){btn.disabled=false;btn.textContent=old||'Compartilhar convite'}}
 }
 async function acceptInvite(code){
+  if(demoMode)return;
   code=(code||'').trim().toUpperCase(); if(!code)return;
   const {data:{user}}=await sb.auth.getUser(); if(!user){state.pendingInvite=code;save();return}
   const {data:inv,error:ie}=await sb.from('relationship_invites').select('id,relationship_id,codigo').eq('codigo',code).maybeSingle();
@@ -203,6 +210,6 @@ async function acceptInvite(code){
 if(state.cor)document.documentElement.style.setProperty('--me',state.cor);
 const inviteFromUrl=new URLSearchParams(location.search).get('convite'); if(inviteFromUrl){state.pendingInvite=inviteFromUrl.toUpperCase();save();}
 showLogin();
-(async()=>{const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);await loadCloudState(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.onboardingDone||state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');await renderQ()}}})();
-sb.auth.onAuthStateChange((_event,session)=>{if(!session)state.logged=false;save()});
+(async()=>{if(demoMode){el('login').classList.add('hide');el('demoNotice').classList.remove('hide');el('invite').classList.add('hide');showApp();return}const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);await loadCloudState(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.onboardingDone||state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');await renderQ()}}})();
+if(!demoMode)sb.auth.onAuthStateChange((_event,session)=>{if(!session)state.logged=false;save()});
 </script></body></html>
