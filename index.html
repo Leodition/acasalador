@@ -106,7 +106,7 @@ function page(p){
   const screens={agenda,dinheiro,lugares,lembretes,compras,perfil};if(!screens[p])return;
   setActivePage(p);
   const render=()=>{currentFeature=p;el('feature').innerHTML=`<button class='btn ghost' onclick='home()'>← Início</button>`+screens[p]()};
-  if(currentFeature===p&&!el('feature').classList.contains('hide')){render();return}
+  if(currentFeature===p&&!el('feature').classList.contains('hide')){navigationSerial++;navigationAnimations.forEach(a=>a.cancel());navigationAnimations=[];render();return}
   return transitionScreen('feature',render);
 }
 
