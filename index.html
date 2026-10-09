@@ -252,7 +252,7 @@ async function acceptInvite(code){
 function linkExistingAccount(){
  if(demoMode){notify('Na demonstração, os convites não conectam contas reais.');return}
  let raw=el('existingInviteCode').value.trim(),code=raw;
- try{if(raw.includes('://'))code=new URL(raw).searchParams.get('convite')||''}catch(_){code=''}
+ try{if(raw.includes('://'))code=new URL(raw.match(/https?:\/\/\S+/)?.[0]||raw).searchParams.get('convite')||''}catch(_){code=''}
  code=code.trim().toUpperCase();
  if(!/^[A-F0-9]{32}$/.test(code)){notify('Cole um link ou código de convite válido.');return}
  state.pendingInvite=code;save();return runBusy('Conectando seu espaço...',()=>acceptInvite(code));
