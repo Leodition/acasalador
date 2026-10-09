@@ -1,9 +1,9 @@
 {
-  "name": "Acasalador",
-  "short_name": "Acasalador",
+  "name": "TeFalei",
+  "short_name": "TeFalei",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f7f4f1",
-  "theme_color": "#171717",
+  "background_color": "#160f12",
+  "theme_color": "#160f12",
   "description": "Organização compartilhada para casal ou trisal."
 }

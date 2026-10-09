@@ -1,11 +1,25 @@
-<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name='theme-color' content='#171717'><link rel='manifest' href='manifest.webmanifest'><title>Acasalador</title><script src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'></script><style>
+<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name='theme-color' content='#160f12'><link rel='manifest' href='manifest.webmanifest'><title>TeFalei</title><script src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'></script><style>
 :root{--me:#ff6b6b;--bg:#f7f4f1;--ink:#1f1d1b;--mut:#777;--card:#fff;--line:#e9e2dc}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}main{max-width:760px;margin:auto;padding:20px 16px 90px}.brand{font-size:32px;font-weight:950;letter-spacing:-1.5px}.brand i{font-style:normal;color:var(--me)}.sub{color:var(--mut);margin:3px 0 24px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;margin:12px 0;box-shadow:0 6px 20px #00000008}.field{width:100%;padding:13px;border:1px solid var(--line);border-radius:13px;margin:6px 0;background:#fff;font:inherit}.btn{border:0;border-radius:13px;padding:13px 16px;font-weight:800;font:inherit;cursor:pointer}.primary{background:var(--me);color:#fff;box-shadow:0 3px 0 #0002;transition:.12s}.primary:hover{filter:brightness(.96);transform:translateY(-1px)}.primary:active{transform:translateY(1px);box-shadow:0 1px 0 #0002}.primary:focus-visible{outline:3px solid #222;outline-offset:2px}.ghost{background:#eee9e5}.row{display:flex;gap:8px;flex-wrap:wrap}.hide{display:none}.choice{width:100%;text-align:left;background:white;border:1px solid var(--line);padding:15px;border-radius:14px;margin:6px 0}.dots{display:flex;gap:6px;margin:15px 0}.dot{width:8px;height:8px;background:#ddd;border-radius:50%}.dot.on{background:var(--me)}.colors{display:flex;gap:12px;flex-wrap:wrap}.color{width:42px;height:42px;border-radius:50%;border:4px solid white;box-shadow:0 0 0 1px #ddd}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.tile{background:#fff;border:1px solid var(--line);border-radius:18px;padding:17px;text-align:left;font-weight:800}.tile b{font-size:25px;display:block;margin-bottom:8px}.tag{display:inline-block;border-radius:999px;padding:5px 9px;background:#f1ece8;font-size:12px}.month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.day{background:#fff;border:1px solid var(--line);border-radius:10px;min-height:58px;padding:6px;font-size:12px}.mark{width:7px;height:7px;background:var(--me);border-radius:50%;display:inline-block;margin:2px}.moneytabs{display:flex;gap:8px}.moneytabs button{flex:1}.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:8px;display:flex;justify-content:center}.bottom div{max-width:760px;width:100%;display:flex;justify-content:space-around}.bottom button{border:0;background:none;font-size:20px}.notice{border-left:4px solid var(--me);padding-left:12px}.small{font-size:12px;color:var(--mut)}.danger{background:#a62828;color:#fff}
 .sep{border:0;border-top:1px solid var(--line);margin:16px 0}.moneySummary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
 .stat{background:#f5f1ed;border-radius:14px;padding:12px}.stat b{display:block;font-size:19px}.cat{border:1px solid var(--line);border-radius:16px;padding:12px;margin:9px 0}
 .expense{padding:9px 0;border-bottom:1px solid var(--line)}.expense:last-child{border-bottom:0}.right{float:right}.timechip{display:inline-flex;gap:6px;align-items:center;background:#f1ece8;border-radius:999px;padding:7px 10px;margin:4px}
 .linkbtn{background:none;border:0;color:var(--me);font-weight:800;cursor:pointer}
+/* Identidade da página de entrada e cadastro. */
+body:has(#login:not(.hide)){background:#160f12;color:#faf3f5;min-height:100vh;color-scheme:dark}
+#login{--me:#e45b70;--mut:#c5b4bc;--card:#24171c;--line:#51333e;max-width:520px;margin:40px auto 0}
+#login .brand{font-size:clamp(36px,8vw,48px)}
+#login .sub{line-height:1.6}
+#login .card{box-shadow:0 14px 40px #00000030;padding:24px}
+#login .field{background:#1b1116;color:#faf3f5;border-color:#51333e;color-scheme:dark}
+#login .field::placeholder{color:#c5b4bc;opacity:1}
+#login .primary{background:#e45b70;color:#160f12;font-weight:700}
+#login .primary:hover{background:#f4778b}
+#login .linkbtn{color:#f58a9c;padding:12px 8px}
+#login :is(input,button):focus-visible{outline:2px solid #f58a9c;outline-offset:3px}
+#login .small{line-height:1.6}
+@media(max-width:480px){#login{margin-top:20px}#login .card{padding:20px}#login .btn.primary{width:100%}#login .linkbtn{display:block;margin:8px auto 0}}
 </style></head><body><main>
-<section id='login'><div class='brand'>A<i>casal</i>ador 💞</div><p class='sub'>Organiza o que vocês vivem, devem, planejam e esquecem.</p>
+<section id='login'><div class='brand'>Te<i>Falei</i> 💞</div><p class='sub'>Organiza o que vocês vivem, devem, planejam e esquecem.</p>
 <div class='card' id='loginBox'><h2>Entrar</h2>
 <input class='field' id='loginId' autocomplete='username' placeholder='E-mail' onkeydown="if(event.key==='Enter')el('loginPass').focus()">
 <input class='field' id='loginPass' autocomplete='current-password' type='password' placeholder='Senha' onkeydown="if(event.key==='Enter')doLogin()">
@@ -22,7 +36,7 @@
 <button type='button' class='linkbtn' onclick='showLogin()'>Já tenho conta</button>
 <p class='small'>Versão de testes: os dados ainda ficam neste aparelho. Não use senha bancária ou uma senha importante.</p></div></section>
 <section id='onboard' class='hide'><button class='btn ghost' onclick='prev()'>← Voltar</button><div class='dots' id='dots'></div><div id='q'></div></section>
-<section id='app' class='hide'><div class='brand'>A<i>casal</i>ador</div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button type='button' class='btn primary' onclick='shareInvite(this)'>Compartilhar convite</button><div id='inviteResult'></div></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
+<section id='app' class='hide'><div class='brand'>Te<i>Falei</i></div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button type='button' class='btn primary' onclick='shareInvite(this)'>Compartilhar convite</button><div id='inviteResult'></div></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
 <section id='feature' class='hide'></section>
 </main><div class='bottom hide' id='bottom'><div><button onclick='home()'>🏠</button><button onclick="page('agenda')">📅</button><button onclick="page('lembretes')">🔔</button><button onclick="page('perfil')">👥</button></div></div>
 <script>
@@ -43,7 +57,7 @@ async function start(){
   const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{data:{name:n,phone:ph,nick:n.split(' ')[0]}}});
   if(error){alert('Não foi possível criar a conta: '+error.message);return}
   state.name=n; state.nick=n.split(' ')[0]; state.phone=ph; state.email=em; state.account=true; save();
-  if(!data.session){alert('Conta criada. Confirme seu e-mail e depois entre no Acasalador.');showLogin();return}
+  if(!data.session){alert('Conta criada. Confirme seu e-mail e depois entre no TeFalei.');showLogin();return}
   state.logged=true; save(); el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
 }
 async function getUsedColors(){const {data:{user}}=await sb.auth.getUser();if(!user)return[];let rid=state.relationshipId;if(!rid&&state.pendingInvite){const {data:i}=await sb.from('relationship_invites').select('relationship_id').eq('codigo',state.pendingInvite).maybeSingle();rid=i?.relationship_id}if(!rid)return[];const {data}=await sb.from('relationship_members').select('cor').eq('relationship_id',rid);return(data||[]).map(x=>x.cor).filter(Boolean)}
@@ -161,10 +175,10 @@ async function shareInvite(btn){
     const {error}=await sb.from('relationship_invites').insert(payload); if(error)throw error;
     const base=location.protocol==='file:'?'https://acasalador.leodition.com.br/':location.origin+location.pathname;
     const url=base+'?convite='+encodeURIComponent(code);
-    const msg=`${state.name||'Alguém'} convidou você para entrar no Acasalador. Código: ${code}\n${url}`;
+    const msg=`${state.name||'Alguém'} convidou você para entrar no TeFalei. Código: ${code}\n${url}`;
     const box=el('inviteResult')||el('inviteResultProfile');
     if(box)box.innerHTML=`<div class="card"><b>Convite criado 💌</b><p class="small">Código</p><h2 style="letter-spacing:2px">${esc(code)}</h2><input class="field" readonly value="${esc(url)}"><button type="button" class="btn ghost" onclick="navigator.clipboard?.writeText('${esc(msg).replace(/'/g,"\\'")}')">Copiar convite</button></div>`;
-    try{if(navigator.share)await navigator.share({title:'Convite Acasalador',text:msg,url});else if(navigator.clipboard)await navigator.clipboard.writeText(msg)}catch(_){}
+    try{if(navigator.share)await navigator.share({title:'Convite TeFalei',text:msg,url});else if(navigator.clipboard)await navigator.clipboard.writeText(msg)}catch(_){}
   }catch(e){console.error(e);alert('Erro ao criar convite: '+(e?.message||e))}
   finally{if(btn){btn.disabled=false;btn.textContent=old||'Compartilhar convite'}}
 }
@@ -184,7 +198,7 @@ async function acceptInvite(code){
   if(used.has(color)) color=palette.find(x=>!used.has(x))||color;
   const {error:ae}=await sb.from('relationship_members').insert({relationship_id:inv.relationship_id,user_id:user.id,cor:color});
   if(ae){alert('Não foi possível entrar no relacionamento: '+ae.message);return}
-  state.relationshipId=inv.relationship_id;state.tipo=String(relType).toLowerCase()==='trisal'?'Trisal':'Casal';state.cor=color;state.onboardingDone=true;await sb.from('profiles').update({cor:color,onboarding_concluido:true}).eq('id',user.id);delete state.pendingInvite;save();document.documentElement.style.setProperty('--me',color);showApp();alert('Convite aceito. Vocês agora estão conectados no Acasalador.')}
+  state.relationshipId=inv.relationship_id;state.tipo=String(relType).toLowerCase()==='trisal'?'Trisal':'Casal';state.cor=color;state.onboardingDone=true;await sb.from('profiles').update({cor:color,onboarding_concluido:true}).eq('id',user.id);delete state.pendingInvite;save();document.documentElement.style.setProperty('--me',color);showApp();alert('Convite aceito. Vocês agora estão conectados no TeFalei.')}
 
 if(state.cor)document.documentElement.style.setProperty('--me',state.cor);
 const inviteFromUrl=new URLSearchParams(location.search).get('convite'); if(inviteFromUrl){state.pendingInvite=inviteFromUrl.toUpperCase();save();}
