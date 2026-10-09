@@ -222,9 +222,9 @@ function dinheiro(){return `<h2>Nosso dinheiro</h2>
 <div id='moneyArea'>${moneyIndividual()}</div>`}
 function lugares(){return `<h2>Nossos lugares</h2><div class='card'><p class='small'>As categorias só aparecem depois que tiverem pelo menos um lugar.</p><span class='tag'><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3M7 11v10m10-18v18m0-18c-5 3-5 9 0 9"/></svg> Restaurantes</span><div><h3>Cadastrar lugar</h3><input class='field' placeholder='Nome'><input class='field' placeholder='Instagram'><input class='field' placeholder='Endereço'><input class='field' placeholder='Custo estimado'><select class='field'><option>Deixar em aberto quem paga</option><option>Vamos dividir</option><option>Deixa que eu pago</option></select><button class='btn primary'>Salvar lugar</button></div></div>`}
 let reminderTimes=[],reminderLoading=false,reminderSaving=false;
-function reminderPeople(){return demoMode?[{user_id:'demo-self',nome:'Você'},{user_id:'demo-other',nome:'Pessoa de exemplo'}]:(state.reminderPeople||[])}
+function reminderPeople(){return demoMode?[{user_id:'demo-self',nome:'Eu'},{user_id:'demo-other',nome:'Alex (exemplo)'}]:(state.reminderPeople||[])}
 function reminderUserId(){return demoMode?'demo-self':state.userId}
-function reminderRecipientOptions(){const me=reminderUserId();return `<option value='me'>Só para mim</option><option value='all'>Para todos</option>`+reminderPeople().filter(p=>p.user_id!==me).map(p=>`<option value='${esc(p.user_id)}'>${esc(p.nome)}</option>`).join('')}
+function reminderRecipientOptions(){const me=reminderUserId();const others=reminderPeople().filter(p=>p.user_id!==me);return `<option value='me'>Eu</option>`+(others.length?others.map(p=>`<option value='${esc(p.user_id)}'>${esc(p.nome||'Outra pessoa')}</option>`).join(''):`<option value='' disabled>${state.relationshipId?'Carregando integrantes…':'Conecte outra pessoa por convite'}</option>`)+`<option value='all'>Todos</option>`}
 function lembretes(){return `<h2>Pedidos e lembretes</h2><div class='card'>
 <label class='small' for='remText'>Título</label><input class='field' id='remText' maxlength='300' placeholder='Ex.: Passar no mercado e comprar pão'>
 <label class='small' for='remWho'>Quem deve receber?</label><select class='field' id='remWho'>${reminderRecipientOptions()}</select>
@@ -257,7 +257,7 @@ async function saveReminder(){
  if(repeat&&mode==='defined'&&!reminderTimes.length){notify('Adicione pelo menos um horário de repetição.');return}
  const recipients=selectedReminderRecipients(el('remWho').value);if(!recipients.length||recipients.some(x=>!x)){notify('Escolha quem deve receber.');return}
  const button=el('remSave');reminderSaving=true;button.disabled=true;button.textContent='Salvando…';
- try{const values={p_title:title,p_recipients:recipients,p_first_at:first.toISOString(),p_repeat:repeat,p_interval:repeat&&mode!=='defined'?Number(mode):null,p_times:repeat&&mode==='defined'?[...reminderTimes]:[]};
+ try{const values={p_timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,p_title:title,p_recipients:recipients,p_first_at:first.toISOString(),p_repeat:repeat,p_interval:repeat&&mode!=='defined'?Number(mode):null,p_times:repeat&&mode==='defined'?[...reminderTimes]:[]};
  let row;if(demoMode)row={id:crypto.randomUUID(),creator_id:reminderUserId(),title,recipients,first_at:values.p_first_at,repeat_until_done:repeat,interval_minutes:values.p_interval,defined_times:values.p_times,done:false};
  else{const {data,error}=await sb.rpc('tefalei_create_reminder',values);if(error)throw error;row=data}
  state.cloudReminders=state.cloudReminders||[];state.cloudReminders.unshift(row);reminderTimes=[];notify(demoMode?'Lembrete salvo nesta demonstração.':'Lembrete salvo online.');page('lembretes');
@@ -273,6 +273,7 @@ function renderReminders(){const me=reminderUserId(),rows=(state.cloudReminders|
  }).join(''):`<div class='card small'>Nenhum lembrete para você ou enviado por você.</div>`}
 async function doneReminder(id){const row=(state.cloudReminders||[]).find(r=>r.id===id);if(!row||!reminderVisible(row))return;const next=!row.done;try{if(!demoMode){const {error}=await sb.rpc('tefalei_complete_reminder',{p_id:id,p_done:next});if(error)throw error}row.done=next;el('remList').innerHTML=renderReminders()}catch(e){notify('Não foi possível atualizar: '+e.message)}}
 function compras(){return `<h2>Compras e estoque</h2><div class='card'><h3>Um espaço para organizar suas compras</h3><p class='small'>Nenhuma seção cadastrada. Vamos definir esta área depois.</p></div>`}
+
 
 
 const genderOptions=[['','Selecione ou deixe para depois'],['homem','Homem'],['mulher','Mulher'],['nao_binario','Pessoa não binária'],['agenero','Agênero'],['genero_fluido','Gênero fluido'],['autodescricao','Quero me descrever'],['nao_informar','Prefiro não informar']];
