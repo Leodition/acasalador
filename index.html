@@ -34,7 +34,7 @@ body:has(#login:not(.hide)){background:#160f12;color:#faf3f5;min-height:100vh;co
 <input class='field' id='pass' autocomplete='new-password' type='password' placeholder='Crie uma senha'>
 <button type='button' class='btn primary' onclick='start()'>Continuar</button>
 <button type='button' class='linkbtn' onclick='showLogin()'>Já tenho conta</button>
-<p class='small'>Versão de testes: os dados ainda ficam neste aparelho. Não use senha bancária ou uma senha importante.</p></div></section>
+<p class='small'>Sua conta é salva online. Agenda, finanças e lembretes ainda estão em desenvolvimento.</p></div></section>
 <section id='onboard' class='hide'><button class='btn ghost' onclick='prev()'>← Voltar</button><div class='dots' id='dots'></div><div id='q'></div></section>
 <section id='app' class='hide'><div id='demoNotice' class='card hide'><b>Modo demonstração</b><p>Explore as telas com dados de exemplo. As alterações são temporárias.</p><a href='./' class='linkbtn'>Sair da demonstração</a></div><div class='brand'>Te<i>Falei</i></div><p class='sub' id='hello'></p><div class='card notice' id='invite'><b>Agora convide quem está com você 💌</b><p class='small'>Cada pessoa terá sua própria conta, cor e privacidade.</p><button type='button' class='btn primary' onclick='shareInvite(this)'>Compartilhar convite</button><div id='inviteResult'></div></div><div class='grid'><button class='tile' onclick="page('agenda')"><b>📅</b>Nossa agenda</button><button class='tile' onclick="page('dinheiro')"><b>💰</b>Nosso dinheiro</button><button class='tile' onclick="page('lugares')"><b>📍</b>Nossos lugares</button><button class='tile' onclick="page('lembretes')"><b>🔔</b>Pedidos e lembretes</button><button class='tile' onclick="page('compras')"><b>🛒</b>Compras e estoque</button><button class='tile' onclick="page('perfil')"><b>👥</b>Nós</button></div></section>
 <section id='feature' class='hide'></section>
@@ -56,15 +56,15 @@ async function start(){
   const nameEl=el('name'), phoneEl=el('phone'), emailEl=el('email'), passEl=el('pass');
   const n=nameEl.value.trim(), ph=phoneEl.value.trim(), em=emailEl.value.trim(), pw=passEl.value;
   if(!n||!ph||!em||!pw){alert('Preencha nome, celular, e-mail e senha.');return}
-  const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{data:{name:n,phone:ph,nick:n.split(' ')[0]}}});
+  const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{data:{nome:n,celular:ph,como_chamar:n.split(' ')[0]}}});
   if(error){alert('Não foi possível criar a conta: '+error.message);return}
   state.name=n; state.nick=n.split(' ')[0]; state.phone=ph; state.email=em; state.account=true; save();
   if(!data.session){alert('Conta criada. Confirme seu e-mail e depois entre no TeFalei.');showLogin();return}
-  state.logged=true; save(); el('login').classList.add('hide'); el('onboard').classList.remove('hide'); renderQ();
+  state.logged=true; save(); el('login').classList.add('hide'); await hydrateUser(data.user); if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else{el('onboard').classList.remove('hide');renderQ()}
 }
-async function getUsedColors(){if(demoMode)return[];const {data:{user}}=await sb.auth.getUser();if(!user)return[];let rid=state.relationshipId;if(!rid&&state.pendingInvite){const {data:i}=await sb.from('relationship_invites').select('relationship_id').eq('codigo',state.pendingInvite).maybeSingle();rid=i?.relationship_id}if(!rid)return[];const {data}=await sb.from('relationship_members').select('cor').eq('relationship_id',rid);return(data||[]).map(x=>x.cor).filter(Boolean)}
+async function getUsedColors(){if(demoMode||!state.relationshipId)return[];const {data,error}=await sb.from('relationship_members').select('cor').eq('relationship_id',state.relationshipId);if(error)return[];return(data||[]).map(x=>x.cor).filter(Boolean)}
 async function renderQ(){el('dots').innerHTML=qs.map((_,i)=>`<i class='dot ${i==step?'on':''}'></i>`).join('');let x=qs[step],h=`<div class='card'><h2>${x.title}</h2>`;if(x.opts)h+=x.opts.map(o=>`<button class='choice' onclick="answer('${x.key}','${o}')">${o}</button>`).join('');if(x.input)h+=`<input class='field' id='ans' placeholder='${x.input}'><button class='btn primary' onclick="answer('${x.key}',ans.value)">Continuar</button>`;if(x.colors){const used=await getUsedColors();h+=`<div class='colors'>${x.colors.map(c=>`<button class='color' title="${used.includes(c)?'Cor já usada':'Escolher cor'}" ${used.includes(c)?'disabled':''} style='background:${c};${used.includes(c)?'opacity:.2;cursor:not-allowed':''}' onclick="answer('cor','${c}')"></button>`).join('')}</div>`}el('q').innerHTML=h+'</div>'}
-async function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else{await ensureRelationship();showApp()}}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
+async function answer(k,v){state[k]=v;if(k==='cor')document.documentElement.style.setProperty('--me',v);save();if(step<qs.length-1){step++;renderQ()}else{const rid=await ensureRelationship();if(rid)showApp()}}function prev(){if(step>0){step--;renderQ()}else{el('onboard').classList.add('hide');el('login').classList.remove('hide')}}
 function showApp(){el('onboard').classList.add('hide');el('app').classList.remove('hide');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.name||'você'}. ${state.tipo||'Relacionamento'} em modo organização.`}function home(){el('feature').classList.add('hide');el('app').classList.remove('hide')}
 function page(p){el('app').classList.add('hide');el('feature').classList.remove('hide');let h=`<button class='btn ghost' onclick='home()'>← Início</button>`;if(p==='agenda')h+=agenda();if(p==='dinheiro')h+=dinheiro();if(p==='lugares')h+=lugares();if(p==='lembretes')h+=lembretes();if(p==='compras')h+=compras();if(p==='perfil')h+=perfil();el('feature').innerHTML=h}
 function agenda(){let d=['D','S','T','Q','Q','S','S'],cells=d.map(x=>`<b style='text-align:center'>${x}</b>`).join('');for(let i=1;i<=30;i++)cells+=`<div class='day'>${i}${[4,11,19].includes(i)?'<br><i class="mark"></i>':''}</div>`;return `<h2>Nossa agenda</h2><div class='card'><div class='row'><span class='tag'>Setembro 2026</span><span class='tag'>Sua cor identifica seus eventos</span></div><div class='month'>${cells}</div></div><div class='card'><h3>Disponibilidade de trabalho</h3><p class='small'>Cadastre dias e horários de trabalho. Ao criar um evento conflitante, o sistema avisará antes de confirmar.</p><button class='btn primary'>+ Cadastrar horário</button></div>`}
@@ -86,7 +86,7 @@ function perfil(){return `<h2>Perfil</h2><div class='card'>
 <label class='small'>Como você chama seu amoreco</label><input class='field' id='pfLove' value='${esc(state.loveName||"")}' placeholder='Defina depois de vincular alguém'>
 
 <label class='small'>Telefone</label><input class='field' id='pfPhone' autocomplete='tel' value='${esc(state.phone||"")}'>
-<label class='small'>E-mail</label><input class='field' id='pfEmail' autocomplete='email' value='${esc(state.email||"")}'>
+<label class='small'>E-mail</label><input class='field' id='pfEmail' readonly autocomplete='email' value='${esc(state.email||"")}'>
 <label class='small'>Sua cor</label><input class='field' id='pfColor' type='color' value='${state.cor||"#ff6b6b"}'>
 <button class='btn primary' onclick='saveProfile()'>Salvar alterações</button>
 <hr class='sep'><button type='button' class='btn ghost' onclick='shareInvite(this)'>Convidar outra pessoa</button><div id='inviteResultProfile'></div>
@@ -108,7 +108,7 @@ async function doLogin(){
   await hydrateUser(data.user); await loadCloudState(data.user);
   state.account=true; state.logged=true; save();
   el('login').classList.add('hide');
-  if(state.pendingInvite)await acceptInvite(state.pendingInvite); else showApp();
+  if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.onboardingDone||state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');step=0;await renderQ()}
 }
 async function logout(){
   if(demoMode){location.href=location.pathname;return}
@@ -119,26 +119,37 @@ async function logout(){
 }
 async function hydrateUser(user){
   if(!user)return;
+  const pending=state.pendingInvite;
+  if(state.userId!==user.id){for(const k of Object.keys(state))delete state[k];state.userId=user.id;if(pending)state.pendingInvite=pending}
   const m=user.user_metadata||{};
-  const {data:p}=await sb.from('profiles').select('nome,como_chamar,celular,cor,onboarding_concluido').eq('id',user.id).maybeSingle();
+  const {data:p}=await sb.from('profiles').select('nome,como_chamar,celular,cor,onboarding_concluido,apelido_parceiro').eq('id',user.id).maybeSingle();
   state.email=user.email||state.email;
-  state.name=p?.nome||m.name||user.email?.split('@')[0]||state.name;
-  state.nick=p?.como_chamar||m.nick||state.name;
-  state.phone=p?.celular||m.phone||'';
+  state.name=p?.nome||m.nome||m.name||user.email?.split('@')[0]||state.name;
+  state.nick=p?.como_chamar||m.como_chamar||m.nick||state.name;
+  state.phone=p?.celular||m.celular||m.phone||'';
+  state.loveName=p?.apelido_parceiro||'';
   if(p?.cor)state.cor=p.cor;
   if(p?.onboarding_concluido)state.onboardingDone=true;
   delete state.password; save();
 }
 async function loadCloudState(user){
   if(!user)return;
-  const {data:member}=await sb.from('relationship_members').select('relationship_id,cor').eq('user_id',user.id).limit(1).maybeSingle();
+  delete state.relationshipId;delete state.tipo;state.onboardingDone=false;
+  const {data:member,error}=await sb.from('relationship_members').select('relationship_id,cor').eq('user_id',user.id).limit(1).maybeSingle();
+  if(error)throw new Error('Não foi possível carregar seu relacionamento: '+error.message);
   if(!member)return;
   state.relationshipId=member.relationship_id; if(member.cor)state.cor=member.cor;
-  const {data:rel}=await sb.from('relationships').select('tipo').eq('id',member.relationship_id).maybeSingle();
+  const {data:rel}=await sb.from('relationships').select('tipo,tempo_juntos,moram_juntos').eq('id',member.relationship_id).maybeSingle();
+  if(rel){state.tempo=rel.tempo_juntos||'';state.moram=rel.moram_juntos||''}
   if(rel?.tipo)state.tipo=rel.tipo==='trisal'?'Trisal':'Casal';
   state.onboardingDone=true; document.documentElement.style.setProperty('--me',state.cor||'#ff6b6b'); save();
 }
-function saveProfile(){state.name=pfName.value.trim();state.nick=pfNick.value.trim();state.loveName=pfLove.value.trim();state.phone=pfPhone.value.trim();state.email=pfEmail.value.trim();state.cor=pfColor.value;document.documentElement.style.setProperty('--me',state.cor);save();alert('Perfil atualizado.');page('perfil')}
+async function saveProfile(){
+  const values={p_nome:el('pfName').value.trim(),p_apelido:el('pfNick').value.trim(),p_parceiro:el('pfLove').value.trim(),p_celular:el('pfPhone').value.trim(),p_cor:el('pfColor').value};
+  if(!values.p_nome){alert('Informe seu nome.');return}
+  if(!demoMode){const {error}=await sb.rpc('tefalei_save_profile',values);if(error){alert('Não foi possível salvar o perfil: '+error.message);return}}
+  Object.assign(state,{name:values.p_nome,nick:values.p_apelido,loveName:values.p_parceiro,phone:values.p_celular,cor:values.p_cor});document.documentElement.style.setProperty('--me',state.cor);save();alert(demoMode?'Perfil de exemplo atualizado nesta demonstração.':'Perfil salvo online.');page('perfil')
+}
 function moneyMode(m){moneyArea.innerHTML=m==='individual'?moneyIndividual():`<div class='card'><h3>Conjunto</h3><p class='small'>A negociação de despesas entre contas será ativada quando conectarmos o banco online.</p></div>`}
 function moneyIndividual(){let inc=state.moneyIncome||0, cats=state.moneyCats||[];let spent=cats.reduce((s,c)=>s+c.items.reduce((a,x)=>a+(+x.value||0),0),0);return `<div class='card'><h3>Resumo individual 🔒</h3>
 <div class='moneySummary'><div class='stat'><span class='small'>Receitas</span><b>${brl(inc)}</b></div><div class='stat'><span class='small'>Saldo estimado</span><b>${brl(inc-spent)}</b></div></div>
@@ -159,57 +170,39 @@ function doneReminder(i){state.reminders[i].done=!state.reminders[i].done;save()
 
 async function ensureRelationship(){
   if(demoMode)return null;
-  const {data:{user}}=await sb.auth.getUser(); if(!user)return null;
-  let {data:member,error:me}=await sb.from('relationship_members').select('relationship_id,cor').eq('user_id',user.id).limit(1).maybeSingle();
-  if(me){console.error(me);alert('Erro ao consultar relacionamento: '+me.message);return null}
-  if(member){state.relationshipId=member.relationship_id; if(member.cor)state.cor=member.cor; save(); return member.relationship_id}
-  const type=(state.tipo||'Casal').toLowerCase()==='trisal'?'trisal':'casal';
-  const {data:rel,error:re}=await sb.from('relationships').insert({type,tipo:type,criado_por:user.id}).select('id').single();
-  if(re){alert('Não foi possível criar o relacionamento: '+re.message);return null}
-  const {error:rm}=await sb.from('relationship_members').insert({relationship_id:rel.id,user_id:user.id,cor:state.cor||'#ff6b6b'});
-  if(rm){console.error(rm);alert('Não foi possível vincular sua conta ao relacionamento: '+rm.message);return null}
-  state.relationshipId=rel.id; await sb.from('profiles').update({cor:state.cor||'#ff6b6b',onboarding_concluido:true}).eq('id',user.id); state.onboardingDone=true; save(); return rel.id
+  if(state.relationshipId)return state.relationshipId;
+  const {data,error}=await sb.rpc('tefalei_create_relationship',{p_tipo:(state.tipo||'Casal').toLowerCase(),p_cor:state.cor||'#687780',p_tempo:state.tempo||null,p_moram:state.moram||null});
+  if(error){alert('Não foi possível criar o relacionamento: '+error.message);return null}
+  state.relationshipId=data;state.onboardingDone=true;save();return data;
 }
+let lastInviteText='';
+async function copyInvite(){try{await navigator.clipboard.writeText(lastInviteText);alert('Convite copiado.')}catch(_){alert('Selecione e copie o link mostrado.')}}
 async function shareInvite(btn){
   if(demoMode){alert('Crie uma conta para conectar participantes por convite.');return}
-  const old=btn?.textContent; if(btn){btn.disabled=true;btn.textContent='Gerando convite...'}
+  const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='Gerando convite...'}
   try{
-    const {data:{user},error:ue}=await sb.auth.getUser(); if(ue||!user)throw new Error('Entre na sua conta novamente.');
-    const relationshipId=await ensureRelationship(); if(!relationshipId)throw new Error('Não foi possível localizar ou criar o relacionamento.');
-    const code=crypto.randomUUID().replace(/-/g,'').slice(0,10).toUpperCase();
-    const payload={relationship_id:relationshipId,codigo:code,criado_por:user.id};
-    const {error}=await sb.from('relationship_invites').insert(payload); if(error)throw error;
+    const rid=await ensureRelationship();if(!rid)return;
+    const {data,error}=await sb.rpc('tefalei_create_invite',{p_relationship:rid});if(error)throw error;
     const base=location.protocol==='file:'?'https://acasalador.leodition.com.br/':location.origin+location.pathname;
-    const url=base+'?convite='+encodeURIComponent(code);
-    const msg=`${state.name||'Alguém'} convidou você para entrar no TeFalei. Código: ${code}\n${url}`;
-    const box=el('inviteResult')||el('inviteResultProfile');
-    if(box)box.innerHTML=`<div class="card"><b>Convite criado 💌</b><p class="small">Código</p><h2 style="letter-spacing:2px">${esc(code)}</h2><input class="field" readonly value="${esc(url)}"><button type="button" class="btn ghost" onclick="navigator.clipboard?.writeText('${esc(msg).replace(/'/g,"\\'")}')">Copiar convite</button></div>`;
-    try{if(navigator.share)await navigator.share({title:'Convite TeFalei',text:msg,url});else if(navigator.clipboard)await navigator.clipboard.writeText(msg)}catch(_){}
-  }catch(e){console.error(e);alert('Erro ao criar convite: '+(e?.message||e))}
-  finally{if(btn){btn.disabled=false;btn.textContent=old||'Compartilhar convite'}}
+    const url=base+'?convite='+encodeURIComponent(data.codigo);
+    lastInviteText=(state.nick||state.name||'Alguém')+' convidou você para entrar no TeFalei. '+url;
+    const box=el('feature').classList.contains('hide')?el('inviteResult'):el('inviteResultProfile');
+    if(box)box.innerHTML='<div class="card"><b>Convite criado</b><p class="small">Uso único. Válido até '+esc(new Date(data.expira_em).toLocaleString('pt-BR'))+'</p><input class="field" readonly value="'+esc(url)+'"><button type="button" class="btn ghost" onclick="copyInvite()">Copiar convite</button></div>';
+    if(navigator.share){try{await navigator.share({title:'Convite TeFalei',text:lastInviteText,url})}catch(_){}}
+  }catch(e){alert('Não foi possível criar o convite: '+e.message)}finally{if(btn){btn.disabled=false;btn.textContent=old||'Compartilhar convite'}}
 }
 async function acceptInvite(code){
   if(demoMode)return;
-  code=(code||'').trim().toUpperCase(); if(!code)return;
-  const {data:{user}}=await sb.auth.getUser(); if(!user){state.pendingInvite=code;save();return}
-  const {data:inv,error:ie}=await sb.from('relationship_invites').select('id,relationship_id,codigo').eq('codigo',code).maybeSingle();
-  if(ie||!inv){alert('Convite inválido ou indisponível.');return}
-  const {data:rel,error:re}=await sb.from('relationships').select('id,type,tipo').eq('id',inv.relationship_id).single();
-  if(re){alert('Não foi possível abrir o relacionamento.');return}
-  const {data:members,error:ce}=await sb.from('relationship_members').select('user_id,cor').eq('relationship_id',inv.relationship_id);
-  if(ce){alert('Não foi possível verificar os membros.');return}
-  const relType=rel.type||rel.tipo||'casal'; const max=String(relType).toLowerCase()==='trisal'?3:2;
-  if(members.some(m=>m.user_id===user.id)){state.relationshipId=inv.relationship_id;save();showApp();return}
-  if(members.length>=max){alert('Este relacionamento já atingiu o limite de membros.');return}
-  let color=state.cor||'#ff6b6b'; const used=new Set(members.map(m=>m.cor)); const palette=['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'];
-  if(used.has(color)) color=palette.find(x=>!used.has(x))||color;
-  const {error:ae}=await sb.from('relationship_members').insert({relationship_id:inv.relationship_id,user_id:user.id,cor:color});
-  if(ae){alert('Não foi possível entrar no relacionamento: '+ae.message);return}
-  state.relationshipId=inv.relationship_id;state.tipo=String(relType).toLowerCase()==='trisal'?'Trisal':'Casal';state.cor=color;state.onboardingDone=true;await sb.from('profiles').update({cor:color,onboarding_concluido:true}).eq('id',user.id);delete state.pendingInvite;save();document.documentElement.style.setProperty('--me',color);showApp();alert('Convite aceito. Vocês agora estão conectados no TeFalei.')}
+  const {data,error}=await sb.rpc('tefalei_accept_invite',{p_codigo:code,p_cor:state.cor||'#687780'});
+  if(error){alert('Não foi possível aceitar o convite: '+error.message);el('login').classList.add('hide');if(state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');step=0;await renderQ()}return}
+  Object.assign(state,{relationshipId:data.relationship_id,tipo:data.tipo==='trisal'?'Trisal':'Casal',cor:data.cor,onboardingDone:true});delete state.pendingInvite;save();
+  const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('convite');history.replaceState(null,'',cleanUrl);
+  document.documentElement.style.setProperty('--me',state.cor);showApp();alert('Convite aceito. Vocês estão conectados no TeFalei.');
+}
 
 if(state.cor)document.documentElement.style.setProperty('--me',state.cor);
 const inviteFromUrl=new URLSearchParams(location.search).get('convite'); if(inviteFromUrl){state.pendingInvite=inviteFromUrl.toUpperCase();save();}
 showLogin();
-(async()=>{if(demoMode){el('login').classList.add('hide');el('demoNotice').classList.remove('hide');el('invite').classList.add('hide');showApp();return}const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);await loadCloudState(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.onboardingDone||state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');await renderQ()}}})();
+(async()=>{if(demoMode){el('login').classList.add('hide');el('demoNotice').classList.remove('hide');el('invite').classList.add('hide');showApp();return}const {data:{session}}=await sb.auth.getSession(); if(session){await hydrateUser(session.user);await loadCloudState(session.user);state.account=true;state.logged=true;save();el('login').classList.add('hide');if(state.pendingInvite){await acceptInvite(state.pendingInvite)}else if(state.onboardingDone||state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');await renderQ()}}})().catch(e=>{alert('Não foi possível carregar sua conta: '+e.message);el('login').classList.remove('hide')});
 if(!demoMode)sb.auth.onAuthStateChange((_event,session)=>{if(!session)state.logged=false;save()});
 </script></body></html>
