@@ -1,0 +1,1 @@
+self.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{const own=windows.find(client=>new URL(client.url).origin===self.location.origin);if(own)return own.focus();return self.clients.openWindow('./');}));});
