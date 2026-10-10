@@ -69,7 +69,7 @@ async function signupAction(){
   const nameEl=el('name'), phoneEl=el('phone'), emailEl=el('email'), passEl=el('pass');
   const n=nameEl.value.trim(), ph=phoneEl.value.trim(), em=emailEl.value.trim(), pw=passEl.value;
   if(!n||!ph||!em||!pw){notify('Preencha nome, celular, e-mail e senha.');return}
-  const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{data:{nome:n,celular:ph,como_chamar:n.split(' ')[0]}}});
+  const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:location.origin+location.pathname+(state.pendingInvite?'?convite='+encodeURIComponent(state.pendingInvite):''),data:{nome:n,celular:ph,como_chamar:n.split(' ')[0],tefalei_pending_invite:state.pendingInvite||null}}});
   if(error){notify(error.message.includes('already registered')?'Esse e-mail já tem uma conta. Use “Já tenho conta” para entrar.':'Não foi possível criar a conta: '+error.message);return}
   state.name=n; state.nick=n.split(' ')[0]; state.phone=ph; state.email=em; state.account=true; save();
   if(!data.session){notify('Conta criada. Confirme seu e-mail e depois entre no TeFalei.');showLogin();return}
@@ -166,6 +166,7 @@ async function hydrateUser(user){
   const pending=state.pendingInvite;
   if(state.userId!==user.id){for(const k of Object.keys(state))delete state[k];state.userId=user.id;if(pending)state.pendingInvite=pending}
   const m=user.user_metadata||{};
+  if(!state.pendingInvite&&/^[A-F0-9]{32}$/.test(m.tefalei_pending_invite||''))state.pendingInvite=m.tefalei_pending_invite;
   const {data:p}=await sb.from('profiles').select('nome,como_chamar,celular,cor,onboarding_concluido,apelido_parceiro').eq('id',user.id).maybeSingle();
   state.email=user.email||state.email;
   state.name=p?.nome||m.nome||m.name||user.email?.split('@')[0]||state.name;
@@ -243,6 +244,7 @@ async function acceptInvite(code){
   const {data,error}=await sb.rpc(rpc,{p_codigo:code,p_cor:state.cor||'#687780'});
   if(error){notify(rpc==='tefalei_link_existing_accounts'&&(error.code==='PGRST202'||error.message.includes('Could not find'))?'O vínculo entre contas existentes ainda precisa da atualização do banco. Sua conta continua como estava.':'Não foi possível aceitar o convite: '+error.message);el('login').classList.add('hide');if(state.relationshipId){showApp()}else{el('onboard').classList.remove('hide');step=0;await renderQ()}return}
   Object.assign(state,{relationshipId:data.relationship_id,tipo:data.tipo==='trisal'?'Trisal':'Casal',cor:data.cor,onboardingDone:true});delete state.pendingInvite;save();
+  await sb.auth.updateUser({data:{tefalei_pending_invite:null}});
   const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('convite');history.replaceState(null,'',cleanUrl);el('invitationWelcome').classList.add('hide');
   document.documentElement.style.setProperty('--me',state.cor);showApp();notify('Convite aceito. Vocês estão conectados no TeFalei.');
 }
