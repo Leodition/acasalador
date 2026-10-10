@@ -195,7 +195,7 @@ function conflictsFor(item){
     for(const other of occurrencesOn(date,true)){
       if(other.id===item.id||!other.start_time)continue;
       const workAvailability=other.kind==='routine'&&other.category==='work';
-      if(other.user_id!==item.user_id&&!workAvailability)continue;
+      if(other.user_id!==item.user_id&&(!workAvailability||(item.kind==='routine'&&item.category==='work')))continue;
       const person=other.user_id===state.userId?'Você':((state.members||[]).find(m=>m.user_id===other.user_id)?.como_chamar||(state.members||[]).find(m=>m.user_id===other.user_id)?.nome||'Outro participante');
       const conflictLabel=workAvailability?person+' está trabalhando: '+other.title+' ('+itemTime(other)+')':other.title;
       for(const candidate of candidates)for(const [a,b] of dayIntervals(candidate,date))for(const [c,d] of dayIntervals(other,date))if(a<d&&c<b)hits.add(conflictLabel);
