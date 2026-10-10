@@ -104,7 +104,7 @@ async function transitionScreen(id,render){
   if(serial===navigationSerial)navigationAnimations=[];
 }
 function updateInviteVisibility(){el('invite').classList.toggle('hide',demoMode||!state.relationshipId||(state.members||[]).length>=(state.tipo==='Trisal'?3:2));}
-function showApp(){updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
+function showApp(record=true){if(record)recordAppPage('home');updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
 function home(record=true){if(record)recordAppPage('home');updateInviteVisibility();state.currentPage='home';save();setActivePage('home');return transitionScreen('app')}
 async function page(p,record=true){
   if(p==='perfil')offerNotificationPermission();
@@ -487,7 +487,7 @@ runBusy('Abrindo seu espaço...',async()=>{
  if(!session){state.logged=false;state.members=[];save();el('login').classList.remove('hide');return}
  const destination=history.state?.tefaleiPage||state.currentPage;await hydrateUser(session.user);await loadCloudState(session.user);state.account=true;state.logged=true;save();
  if(state.pendingInvite){await acceptInvite(state.pendingInvite)}
- else if(state.onboardingDone||state.relationshipId){await showApp();if(destination&&destination!=='home')await page(destination,false)}
+ else if(state.onboardingDone||state.relationshipId){await showApp(false);if(destination&&destination!=='home')await page(destination,false)}
  else{el('onboard').classList.remove('hide');await renderQ()}
 }).then(()=>{if(!demoMode&&['app','feature','onboard'].every(id=>el(id).classList.contains('hide'))){state.logged=false;save();el('login').classList.remove('hide')}});
 window.addEventListener('focus',()=>{if(state.logged&&!busy&&!demoMode)loadCloudState({id:state.userId}).catch(e=>notify(e.message))});
