@@ -294,7 +294,7 @@ async function testNotification(){
  const prefs=state.notificationPrefs||{};let details=[];
  if(prefs.sound){const ok=await playNotificationSound();if(!ok)details.push('Som indisponível neste navegador.')}
  if(prefs.vibration){if(!navigator.vibrate||!navigator.vibrate([120,70,120]))details.push('Vibração indisponível neste aparelho.')}
- if(prefs.enabled&&notificationPermission()==='granted'&&!demoMode){try{const registration=await navigator.serviceWorker.register('./tefalei-notifications-sw.js',{scope:'./'});await navigator.serviceWorker.ready;await registration.showNotification('TeFalei',{body:'Seu teste de alerta chegou.',tag:'tefalei-test',silent:!prefs.sound&&!prefs.vibration,...(prefs.vibration?{vibrate:[120,70,120]}:{})});details.push('Notificação de teste enviada.')}catch(e){details.push('Notificação do sistema indisponível: '+e.message)}}else details.push('Teste no app. Ative a permissão para testar a notificação do sistema.');notify(details.join(' '));
+ if(prefs.enabled&&notificationPermission()==='granted'&&!demoMode){try{const registration=await navigator.serviceWorker.register('./tefalei-notifications-sw.js',{scope:'./'});await navigator.serviceWorker.ready;await registration.showNotification('TeFalei',{body:'Seu teste de alerta chegou.',tag:'tefalei-test',silent:true});details.push('Notificação de teste enviada.')}catch(e){details.push('Notificação do sistema indisponível: '+e.message)}}else details.push('Teste no app. Ative a permissão para testar a notificação do sistema.');notify(details.join(' '));
 }
 
 
