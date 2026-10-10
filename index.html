@@ -130,9 +130,10 @@ function brazilHolidays(year){
   const result={};for(const [day,name] of Object.entries(fixed))result[`${year}-${day}`]=name;
   const friday=easterDate(year);friday.setDate(friday.getDate()-2);result[localDateKey(friday)]='Paixão de Cristo · calendário federal';return result;
 }
-function occurrencesOn(date){
+function occurrencesOn(date,includeAvailability=false){
   const day=new Date(date+'T12:00:00').getDay(),previous=(day+6)%7,result=[];
   for(const item of agendaItems()){
+    if(!includeAvailability&&item.kind==='routine'&&item.category==='work')continue;
     if(item.kind==='routine'){
       if(item.weekdays.includes(day))result.push({...item,continuation:false});
       if(item.end_time<item.start_time&&item.weekdays.includes(previous))result.push({...item,continuation:true});
@@ -154,7 +155,7 @@ function agenda(){
   const hidden=state.agendaHiddenCards||[],routines=agendaItems().filter(x=>x.kind==='routine');
   const routineCards=Object.entries(routineLabels).filter(([k])=>!hidden.includes(k)).map(([k,label])=>{
     const mine=routines.filter(x=>x.category===k&&(demoMode||x.user_id===state.userId));
-    return `<div class="card routine-card"><button class="remove-card" onclick="confirmHideRoutine('${k}')" aria-label="Remover cartão ${label}">×</button><span class="eyebrow">Sua rotina</span><h3>${label}</h3><p class="small">${k==='work'?'Como são seus horários de trabalho?':k==='study'?'Reserve espaço para seus estudos.':'Vôlei, dança, natação… do seu jeito.'}</p>${mine.map(x=>`<button class="routine-summary" onclick="editAgendaItem('${x.id}')"><b>${esc(x.title)}</b><span>${x.weekdays.map(d=>weekLabels[d]).join(', ')} · ${esc(itemTime(x))}</span></button>`).join('')}<button class="btn ghost" onclick="openRoutineForm('${k}')">${mine.length?'+ Outro horário':'Cadastrar horário'}</button></div>`;
+    return `<div class="card routine-card"><button class="remove-card" onclick="confirmHideRoutine('${k}')" aria-label="Remover cartão ${label}">×</button><span class="eyebrow">Sua rotina</span><h3>${label}</h3><p class="small">${k==='work'?'Seus horários ficam fora do calendário e avisam quando um compromisso coincide com o trabalho.':k==='study'?'Reserve espaço para seus estudos.':'Vôlei, dança, natação… do seu jeito.'}</p>${mine.map(x=>`<button class="routine-summary" onclick="editAgendaItem('${x.id}')"><b>${esc(x.title)}</b><span>${x.weekdays.map(d=>weekLabels[d]).join(', ')} · ${esc(itemTime(x))}</span></button>`).join('')}<button class="btn ghost" onclick="openRoutineForm('${k}')">${mine.length?'+ Outro horário':'Cadastrar horário'}</button></div>`;
   }).join('');
   return `<div class="agenda-heading"><div><h2>Nossa agenda</h2><p class="small">Toque em um dia para adicionar. Deslize para a esquerda ou direita para mudar de mês.</p></div><button class="btn ghost" onclick="openEventForm('', 'birthday')">Aniversários e datas</button></div><div class="card" id="agendaSwipeArea" tabindex="0" role="group" aria-label="Calendário. Deslize para trocar de mês." onpointerdown="beginAgendaSwipe(event)" onpointerup="endAgendaSwipe(event)" onpointercancel="cancelAgendaSwipe()" onclick="guardAgendaClick(event)" onkeydown="if(event.target===this&&(event.key==='ArrowLeft'||event.key==='ArrowRight')){event.preventDefault();moveAgendaMonth(event.key==='ArrowLeft'?-1:1)}"><div class="calendar-toolbar"><button class="btn ghost" aria-label="Mês anterior" onclick="moveAgendaMonth(-1)">←</button><h3>${esc(heading)}</h3><button class="btn ghost" aria-label="Próximo mês" onclick="moveAgendaMonth(1)">→</button><button class="linkbtn" onclick="agendaToday()">Hoje</button></div><div class="month">${cells}</div><div class="calendar-legend"><span>◇ Feriado</span><span>● Compromisso</span><span>Contorno: hoje</span></div><p class="small">Feriados nacionais e Paixão de Cristo do calendário federal. Datas estaduais e municipais podem ser adicionadas em “Aniversários e datas”.</p></div><div class="agenda-routines">${routineCards}</div>${hidden.length?`<button class="linkbtn" onclick="restoreRoutineCards()">Restaurar cartões removidos</button>`:''}<div class="card"><div class="row"><h3>${esc(new Date(selectedAgendaDate+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))}</h3><button class="linkbtn" onclick="openEventForm('${selectedAgendaDate}')">+ Adicionar</button></div>${holidays[selectedAgendaDate]?`<p class="holiday-label">◇ ${esc(holidays[selectedAgendaDate])}</p>`:''}${itemList(occurrencesOn(selectedAgendaDate))}</div>${agendaLoading?'<p class="small" role="status">Carregando agenda online…</p>':''}`;
 }
@@ -191,9 +192,13 @@ function conflictsFor(item){
     const overnight=!!(item.end_time&&item.end_time<item.start_time);
     const continuation=overnight&&(item.kind==='routine'?item.weekdays.includes((day+6)%7):date!==item.event_date);
     const candidates=[...(normal?[item]:[]),...(continuation?[{...item,continuation:true}]:[])];
-    for(const other of occurrencesOn(date)){
-      if(other.id===item.id||other.user_id!==item.user_id||!other.start_time)continue;
-      for(const candidate of candidates)for(const [a,b] of dayIntervals(candidate,date))for(const [c,d] of dayIntervals(other,date))if(a<d&&c<b)hits.add(other.title);
+    for(const other of occurrencesOn(date,true)){
+      if(other.id===item.id||!other.start_time)continue;
+      const workAvailability=other.kind==='routine'&&other.category==='work';
+      if(other.user_id!==item.user_id&&!workAvailability)continue;
+      const person=other.user_id===state.userId?'Você':((state.members||[]).find(m=>m.user_id===other.user_id)?.como_chamar||(state.members||[]).find(m=>m.user_id===other.user_id)?.nome||'Outro participante');
+      const conflictLabel=workAvailability?person+' está trabalhando: '+other.title+' ('+itemTime(other)+')':other.title;
+      for(const candidate of candidates)for(const [a,b] of dayIntervals(candidate,date))for(const [c,d] of dayIntervals(other,date))if(a<d&&c<b)hits.add(conflictLabel);
     }
   }
   return [...hits];
@@ -206,7 +211,7 @@ async function saveAgendaForm(kind,category,id){
   const existing=agendaItems().find(x=>x.id===id);if(existing&&!demoMode&&existing.user_id!==state.userId){errorBox.textContent='Somente quem criou pode editar.';return}
   const item={id:id||crypto.randomUUID(),user_id:state.userId||null,relationship_id:state.relationshipId||null,kind,category,title,event_date:kind==='routine'?null:el('agDate').value,weekdays,start_time:start,end_time:end,annual:kind!=='routine'&&el('agAnnual').checked,notes:el('agNotes').value.trim(),color:state.cor||'#687780',archived:false,updated_at:new Date().toISOString()};
   if(kind!=='routine'&&!item.event_date){errorBox.textContent='Escolha uma data.';return}
-  const conflicts=conflictsFor(item);if(conflicts.length&&!confirm('Esse horário coincide com '+conflicts.join(', ')+'. Deseja salvar mesmo assim?'))return;
+  const conflicts=conflictsFor(item);if(conflicts.length&&!confirm('Atenção: esse horário coincide com '+conflicts.join(', ')+'. Deseja salvar mesmo assim?'))return;
   button.disabled=true;button.textContent='Salvando…';errorBox.textContent='';
   try{if(!demoMode){const {error}=await sb.from('tefalei_agenda_items').upsert(item);if(error)throw error}
     state.agendaItems=(state.agendaItems||[]).filter(x=>x.id!==item.id);state.agendaItems.push(item);save();if(item.event_date){selectedAgendaDate=item.event_date;agendaView=item.event_date.slice(0,7)}closeAgendaDialog();refreshAgenda();notify(demoMode?'Salvo nesta demonstração.':'Salvo na agenda online.');
