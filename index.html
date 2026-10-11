@@ -110,7 +110,7 @@ async function transitionScreen(id,render){
   if(serial===navigationSerial)navigationAnimations=[];
 }
 function updateInviteVisibility(){el('invite').classList.toggle('hide',demoMode||!state.relationshipId||(state.members||[]).length>=(state.tipo==='Trisal'?3:2));}
-function showApp(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
+function showApp(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');startPartnerChecks();el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
 function home(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();state.currentPage='home';save();setActivePage('home');return transitionScreen('app')}
 async function page(p,record=true){
   if(p==='configuracoes')offerNotificationPermission();
@@ -340,6 +340,31 @@ async function sendUrgentAlert(){
   notify('Aviso urgente registrado. A outra pessoa poderá vê-lo no aplicativo. A entrega imediata com o app fechado ainda não está disponível.');
  }catch(e){notify('Não foi possível enviar o aviso: '+e.message)}
 }
+let partnerCheckTimer=null,partnerCheckBusy=false;
+function startPartnerChecks(){if(partnerCheckTimer||demoMode)return;partnerCheckTimer=setInterval(checkPartnerActivity,30000);checkPartnerActivity()}
+function stopPartnerChecks(){if(partnerCheckTimer){clearInterval(partnerCheckTimer);partnerCheckTimer=null}}
+async function checkPartnerActivity(){
+ if(partnerCheckBusy||demoMode||!state.logged||document.hidden)return;
+ partnerCheckBusy=true;
+ try{
+  const {data,error}=await sb.from('tefalei_reminders').select('*').order('created_at',{ascending:false}).limit(100);
+  if(error)throw error;
+  const before=new Set((state.cloudReminders||[]).map(r=>r.id));
+  const incoming=(data||[]).filter(r=>r.creator_id!==reminderUserId()&&(r.recipients||[]).includes(reminderUserId())&&!before.has(r.id));
+  state.cloudReminders=data||[];refreshReminderLists();
+  if(currentFeature==='notificacoes'&&!el('feature').classList.contains('hide'))el('feature').innerHTML=`<button class='btn ghost' onclick='goBack()'>← Voltar</button>`+centralNotificacoes();
+  if(incoming.length){
+   const urgent=incoming.some(r=>String(r.title).startsWith('🚨 AVISO URGENTE'));
+   notify(urgent?'🚨 Aviso urgente recebido! Confira a central de notificações.':incoming.length+' novo(s) pedido(s) recebido(s).');
+   if(state.notificationPrefs?.sound)playNotificationSound();
+   if(state.notificationPrefs?.vibration&&navigator.vibrate)navigator.vibrate(urgent?[250,100,250,100,250]:[150,90,150]);
+   if(state.notificationPrefs?.enabled&&notificationPermission()==='granted'){
+    try{const reg=await navigator.serviceWorker.register('./tefalei-notifications-sw.js',{scope:'./'});await reg.showNotification(urgent?'🚨 TeFalei: aviso urgente':'TeFalei: novo pedido',{body:urgent?'Alguém pediu ajuda. Abra o aplicativo.':'Você recebeu um novo pedido.',tag:'tefalei-inbox',silent:true})}catch(_){}
+   }
+  }
+ }catch(e){console.warn('Não foi possível verificar os pedidos recebidos:',e)}
+ finally{partnerCheckBusy=false}
+}
 function receivedNotifications(){const me=reminderUserId();return (state.cloudReminders||[]).filter(r=>reminderVisible(r)&&r.creator_id!==me).slice(0,50)}
 function notificationReadKey(){return 'tefalei-read-notifications-'+reminderUserId()}
 function readNotificationIds(){try{return JSON.parse(localStorage.getItem(notificationReadKey())||'[]')}catch{return []}}
@@ -412,7 +437,7 @@ async function loginAction(){
 async function logoutAction(){
   if(demoMode){location.href=location.pathname;return}
   navigationSerial++;navigationAnimations.forEach(a=>a.cancel());navigationAnimations=[];
-  const {error}=await sb.auth.signOut();if(error)throw error;
+  const {error}=await sb.auth.signOut();if(error)throw error;stopPartnerChecks();
   state.logged=false; save();
   el('feature').classList.add('hide'); el('app').classList.add('hide'); el('bottom').classList.add('hide');
   el('login').classList.remove('hide'); showLogin(); el('loginPass').value='';
