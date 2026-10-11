@@ -114,6 +114,7 @@ function showApp(record=true){refreshRelationshipAnniversary();checkAnniversaryR
 function home(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();state.currentPage='home';save();setActivePage('home');return transitionScreen('app')}
 async function page(p,record=true){
   if(p==='configuracoes')offerNotificationPermission();
+  if(!demoMode&&state.logged)startPartnerChecks();
   if(p==='agenda'&&!agendaLoading)loadAgendaState();
   if(p==='perfil'&&!demoMode&&state.logged){try{await loadRelationshipPeople()}catch(e){notify(e.message)}}
   state.currentPage=p;save();if(record)recordAppPage(p);
@@ -350,6 +351,7 @@ async function checkPartnerActivity(){
   const {data,error}=await sb.from('tefalei_reminders').select('*').order('created_at',{ascending:false}).limit(100);
   if(error)throw error;
   const owner=reminderUserId();const initial=partnerCheckInitializedFor!==owner;
+  if(state.userId!==owner||!state.logged)return;
   const before=new Set((state.cloudReminders||[]).map(r=>r.id));
   const incoming=initial?[]:(data||[]).filter(r=>r.creator_id!==owner&&(r.recipients||[]).includes(owner)&&!before.has(r.id));
   partnerCheckInitializedFor=owner;
