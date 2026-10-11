@@ -269,7 +269,7 @@ function lembretes(){return `<h2>Pedidos e lembretes</h2><div class='card'>
 <div id='definedTimes' class='hide'><label class='small' for='newTime'>Horário de repetição</label><div class='row'><input class='field' style='flex:1' id='newTime' type='time'><button class='btn ghost' onclick='addDefinedTime()'>+ Horário</button></div><div id='timeList'>${renderReminderTimeChips()}</div><p class='small'>Esses horários se repetem a cada dia, após o primeiro aviso, até concluir.</p></div></div>
 <button class='btn primary' id='remSave' onclick='saveReminder()'>Criar lembrete</button><p class='small' role='status' id='remStatus'></p></div>
 <p class='small'>A lista e os horários podem ser salvos. O envio automático de notificações ainda precisa ser ativado.</p>
-<div id='remList'>${renderReminders()}</div>${legacyReminderList()}`}
+<h3>Pendentes</h3><div id='remList'>${renderReminders()}</div><details class='card'><summary>Histórico de pedidos concluídos</summary><div id='remHistory'>${renderReminderHistory()}</div></details>${legacyReminderList()}`}
 function toggleReminderRepeat(){el('remRepeatPanel').classList.toggle('hide',!el('remUntil').checked);toggleDefinedTimes()}
 function toggleDefinedTimes(){el('definedTimes').classList.toggle('hide',!el('remUntil').checked||el('remMode').value!=='defined');renderTimes()}
 function renderReminderTimeChips(){return reminderTimes.map((t,i)=>`<span class='timechip'>${esc(t)}<button class='linkbtn' aria-label='Remover horário ${esc(t)}' onclick='removeTime(${i})'>×</button></span>`).join('')||`<p class='small'>Adicione um ou mais horários.</p>`}
@@ -298,15 +298,18 @@ async function saveReminder(){
  }catch(e){if(el('remStatus'))el('remStatus').textContent='Não foi possível salvar: '+e.message}finally{reminderSaving=false;if(button.isConnected){button.disabled=false;button.textContent='Criar lembrete'}}
 }
 function reminderVisible(row,id=reminderUserId()){return row.creator_id===id||(row.recipients||[]).includes(id)}
-function renderReminders(){const me=reminderUserId(),rows=(state.cloudReminders||[]).filter(r=>reminderVisible(r));return rows.length?rows.map(r=>{
+function renderReminders(){const rows=(state.cloudReminders||[]).filter(r=>reminderVisible(r)&&!r.done);return renderReminderRows(rows,false)}
+function renderReminderHistory(){const rows=(state.cloudReminders||[]).filter(r=>reminderVisible(r)&&r.done);return renderReminderRows(rows,true)}
+function renderReminderRows(rows,historyMode){const me=reminderUserId();return rows.length?rows.map(r=>{
  const recipientNames=r.recipients.map(id=>id===me?'Você':reminderPeople().find(p=>p.user_id===id)?.nome||'Integrante');
  const sent=!r.recipients.includes(me)?'Enviado para ': 'Para ';
  const schedule=new Date(r.first_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
  const repeat=r.repeat_until_done?(r.interval_minutes?' · repetir a cada '+r.interval_minutes+' minutos':' · repetir às '+r.defined_times.map(t=>t.slice(0,5)).join(', '))+' até concluir':'';
  return `<div class='card'><b>${esc(r.title)}</b><p class='small'>${esc(sent+recipientNames.join(', '))}</p><p class='small'>Primeiro aviso: ${esc(schedule+repeat)}</p><p class='small'>${r.done?'Realizado':'Pendente'}</p><button class='btn ghost' onclick='doneReminder(${JSON.stringify(r.id)})'>${r.done?'Reabrir':'Concluir'}</button></div>`
- }).join(''):`<div class='card small'>Nenhum lembrete para você ou enviado por você.</div>`}
-async function doneReminder(id){const row=(state.cloudReminders||[]).find(r=>r.id===id);if(!row||!reminderVisible(row))return;const next=!row.done;try{if(!demoMode){const {error}=await sb.rpc('tefalei_complete_reminder',{p_id:id,p_done:next});if(error)throw error}row.done=next;save();el('remList').innerHTML=renderReminders()}catch(e){notify('Não foi possível atualizar: '+e.message)}}
+ }).join(''):`<div class='card small'>${historyMode?'Nenhum pedido concluído.':'Nenhum pedido pendente.'}</div>`}
+async function doneReminder(id){const row=(state.cloudReminders||[]).find(r=>r.id===id);if(!row||!reminderVisible(row))return;const next=!row.done;try{if(!demoMode){const {error}=await sb.rpc('tefalei_complete_reminder',{p_id:id,p_done:next});if(error)throw error}row.done=next;save();refreshReminderLists()}catch(e){notify('Não foi possível atualizar: '+e.message)}}
 
+function refreshReminderLists(){if(el('remList'))el('remList').innerHTML=renderReminders();if(el('remHistory'))el('remHistory').innerHTML=renderReminderHistory()}
 function legacyReminderList(){const rows=state.reminders||[];return rows.length?`<div class='card'><h3>Lembretes anteriores neste aparelho</h3><p class='small'>Estes pedidos foram criados antes da atualização, sem data de aviso e sem sincronização. Cadastre novamente os que deseja agendar.</p>${rows.map(r=>`<p><b>${esc(r.text)}</b> · ${r.done?'Realizado':'Pendente'}</p>`).join('')}</div>`:''}
 function compras(){return `<h2>Compras e estoque</h2><div class='card'><h3>Lista compartilhada</h3><input class='field' placeholder='Adicionar item'><button class='btn primary'>Adicionar</button></div><div class='card'><h3><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17c0-3 4-6 7-6s7 3 7 6c0 5-5 1-7 1s-7 4-7-1Z"/><circle cx="5" cy="8" r="2"/><circle cx="10" cy="4" r="2"/><circle cx="15" cy="4" r="2"/><circle cx="20" cy="8" r="2"/></svg> Kira</h3><p>Tapetinhos <b style='float:right'>30 un.</b></p><p class='small'>O estoque poderá estimar consumo e avisar antes de acabar.</p><button class='btn ghost'>Gerenciar estoque</button></div>`}
 const genderOptions=[['','Selecione ou deixe para depois'],['homem','Homem'],['mulher','Mulher'],['nao_binario','Pessoa não binária'],['agenero','Agênero'],['genero_fluido','Gênero fluido'],['autodescricao','Quero me descrever'],['nao_informar','Prefiro não informar']];
