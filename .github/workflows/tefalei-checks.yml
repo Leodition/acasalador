@@ -19,13 +19,13 @@ jobs:
           const vm=require('node:vm');
           const assert=require('node:assert/strict');
           const html=fs.readFileSync('index.html','utf8');
-          const scripts=[...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)].map(x=>x[1]).filter(Boolean);
+          const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
           assert(scripts.length,'Missing inline JavaScript');
           scripts.forEach((s,i)=>new vm.Script(s,{filename:'inline-'+i+'.js'}));
           const manifest=JSON.parse(fs.readFileSync('manifest.webmanifest','utf8'));
           assert.equal(manifest.name,'TeFalei');
           assert(manifest.icons?.length,'Missing install icon');
-          manifest.icons.forEach(icon=>assert(fs.existsSync(icon.src.replace(/^\\.\\//,'')),'Missing icon '+icon.src));
+          manifest.icons.forEach(icon=>assert(fs.existsSync(icon.src.replace(/^\.\//,'')),'Missing icon '+icon.src));
           new vm.Script(fs.readFileSync('tefalei-notifications-sw.js','utf8'));
           for(const name of ['sendUrgentAlert','renderReminderHistory','centralNotificacoes','checkPartnerActivity','configuracoes']){
             assert(html.includes('function '+name+'('),'Missing '+name);
