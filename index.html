@@ -326,7 +326,7 @@ function notificationPermission(){return 'Notification' in window?Notification.p
 let notificationPromptAttempted=false;
 function offerNotificationPermission(){if(!demoMode&&!notificationPromptAttempted&&notificationPermission()==='default'&&navigator.userActivation?.isActive){notificationPromptAttempted=true;requestNotificationPermission()}}
 function notificationStatus(){return ({granted:'Permitidas neste aparelho',denied:'Bloqueadas neste navegador. Altere nas configurações do site.',default:'Permissão ainda não solicitada',unsupported:'Este navegador não oferece notificações. No celular, tente instalar o app na tela inicial.'})[notificationPermission()]}
-function notificationPanel(){const p=state.notificationPrefs||{};return `<div class='card'><h3>Notificações</h3><p class='small' id='notificationPermissionStatus'>${esc(notificationStatus())}</p>${notificationPermission()==='default'?`<button class='btn primary' type='button' onclick='requestNotificationPermission()'>Ativar notificações</button>`:''}<label class='setting-row'><span>Notificações neste aparelho</span><input type='checkbox' id='ntEnabled' ${p.enabled&&notificationPermission()==='granted'?'checked':''} onchange='saveNotificationPreferences()'></label><label class='setting-row'><span>Som TeFalei · assobio</span><input type='checkbox' id='ntSound' ${p.sound?'checked':''} onchange='saveNotificationPreferences()'></label><label class='setting-row'><span>Vibração</span><input type='checkbox' id='ntVibrate' ${p.vibration?'checked':''} onchange='saveNotificationPreferences()'></label><label class='small' for='ntVolume'>Volume do som no aplicativo: <strong id='ntVolumeLabel'>${Math.max(0,Math.min(100,Number(p.volume??85)))}%</strong></label><input id='ntVolume' type='range' min='0' max='100' step='5' value='${Math.max(0,Math.min(100,Number(p.volume??85)))}' oninput="document.getElementById('ntVolumeLabel').textContent=this.value+'%'" onchange='saveNotificationPreferences()'><button type='button' class='btn ghost' onclick='playNotificationSound()'>Ouvir volume escolhido</button><p class='small'>Volume de 0 a 100% para o som dentro do app. Ajusta a intensidade do sinal, sem ultrapassar o limite físico do aparelho.</p><p class='small'>Som com o app aberto; vibração quando o aparelho permitir. Nas notificações do sistema, o celular controla o som e a vibração. Ativar a permissão não configura o envio de lembretes com o app fechado.</p><button type='button' class='btn ghost' onclick='testNotification()'>Enviar notificação de teste neste aparelho</button><p class='small'>O teste é local. Não envia mensagem ao parceiro e não comprova a entrega com o aplicativo fechado.</p></div>`}
+function notificationPanel(){const p=state.notificationPrefs||{};return `<div class='card'><h3>Notificações</h3><p class='small' id='notificationPermissionStatus'>${esc(notificationStatus())}</p>${notificationPermission()==='default'?`<button class='btn primary' type='button' onclick='requestNotificationPermission()'>Ativar notificações</button>`:''}<label class='setting-row'><span>Notificações neste aparelho</span><input type='checkbox' id='ntEnabled' ${p.enabled&&notificationPermission()==='granted'?'checked':''} onchange='saveNotificationPreferences()'></label><label class='setting-row'><span>Som de notificação no aplicativo</span><input type='checkbox' id='ntSound' ${p.sound?'checked':''} onchange='saveNotificationPreferences()'></label><label class='setting-row'><span>Vibração</span><input type='checkbox' id='ntVibrate' ${p.vibration?'checked':''} onchange='saveNotificationPreferences()'></label><label class='small' for='ntTone'>Escolher toque</label><select class='field' id='ntTone' onchange='previewNotificationTone(this.value)'><option value='cristal' ${(!p.tone||p.tone==='cristal')?'selected':''}>Cristal · delicado e rápido</option><option value='pop' ${p.tone==='pop'?'selected':''}>Pop · duas notas alegres</option><option value='digital' ${p.tone==='digital'?'selected':''}>Digital · alerta tecnológico</option><option value='urgente' ${p.tone==='urgente'?'selected':''}>Urgente · quatro bipes rápidos</option></select><label class='small' for='ntVolume'>Volume do som no aplicativo: <strong id='ntVolumeLabel'>${Math.max(0,Math.min(100,Number(p.volume??85)))}%</strong></label><input id='ntVolume' type='range' min='0' max='100' step='5' value='${Math.max(0,Math.min(100,Number(p.volume??85)))}' oninput="document.getElementById('ntVolumeLabel').textContent=this.value+'%'" onchange='saveNotificationPreferences()'><button type='button' class='btn ghost' onclick='playNotificationSound()'>Ouvir volume escolhido</button><p class='small'>Volume de 0 a 100% para o som dentro do app. Ajusta a intensidade do sinal, sem ultrapassar o limite físico do aparelho.</p><p class='small'>Som com o app aberto; vibração quando o aparelho permitir. Nas notificações do sistema, o celular controla o som e a vibração. Ativar a permissão não configura o envio de lembretes com o app fechado.</p><button type='button' class='btn ghost' onclick='testNotification()'>Enviar notificação de teste neste aparelho</button><p class='small'>O teste é local. Não envia mensagem ao parceiro e não comprova a entrega com o aplicativo fechado.</p></div>`}
 let profileEditing=false;
 function toggleProfileEdit(){if(profileEditing){profileEditing=false;page('perfil');return}profileEditing=true;applyProfileEditLock()}
 function applyProfileEditLock(){const card=document.getElementById('personalProfileCard');if(!card)return;card.querySelectorAll('input,select').forEach(input=>{if(input.id!=='pfEmail')input.disabled=!profileEditing});const saveButton=card.querySelector('[data-profile-save]');if(saveButton)saveButton.disabled=!profileEditing;const editButton=card.querySelector('[data-profile-edit]');if(editButton)editButton.textContent=profileEditing?'Cancelar edição':'Editar perfil';}
@@ -386,8 +386,8 @@ async function profileAction(){
  if(!demoMode){const {error}=await sb.rpc('tefalei_save_profile_v2',values);if(error)throw error}
  Object.assign(state,{name:values.p_nome,nick:values.p_apelido,phone:values.p_celular,loveName:values.p_parceiro,cor:values.p_cor,birthDate:values.p_nascimento||'',gender:values.p_genero||'',genderDescription:values.p_genero==='autodescricao'?values.p_descricao:''});document.documentElement.style.setProperty('--me',state.cor);save();profileEditing=false;notify('Perfil salvo.');await page('perfil');
 }
-async function loadNotificationPreferences(){if(demoMode)return;const {data,error}=await sb.from('tefalei_notification_preferences').select('enabled,sound,vibration').eq('user_id',state.userId).maybeSingle();if(error)throw error;state.notificationPrefs={...(data||{enabled:false,sound:false,vibration:false}),volume:Math.max(0,Math.min(100,Number(state.notificationPrefs?.volume??85)))};save()}
-async function persistNotificationPreferences(prefs){if(!demoMode){const {volume,...cloudPrefs}=prefs;const {error}=await sb.from('tefalei_notification_preferences').upsert({user_id:state.userId,...cloudPrefs,updated_at:new Date().toISOString()});if(error)throw error}state.notificationPrefs=prefs;save();if(prefs.enabled&&notificationPermission()==='granted')registerRemotePush().catch(e=>console.warn('Registro push pendente:',e))}
+async function loadNotificationPreferences(){if(demoMode)return;const {data,error}=await sb.from('tefalei_notification_preferences').select('enabled,sound,vibration').eq('user_id',state.userId).maybeSingle();if(error)throw error;state.notificationPrefs={...(data||{enabled:false,sound:false,vibration:false}),volume:Math.max(0,Math.min(100,Number(state.notificationPrefs?.volume??85))),tone:state.notificationPrefs?.tone||'cristal'};save()}
+async function persistNotificationPreferences(prefs){if(!demoMode){const {volume,tone,...cloudPrefs}=prefs;const {error}=await sb.from('tefalei_notification_preferences').upsert({user_id:state.userId,...cloudPrefs,updated_at:new Date().toISOString()});if(error)throw error}state.notificationPrefs=prefs;save();if(prefs.enabled&&notificationPermission()==='granted')registerRemotePush().catch(e=>console.warn('Registro push pendente:',e))}
 // Set this public VAPID key after deploying the Supabase push sender.
 const TEFALEI_VAPID_PUBLIC_KEY='BLpycb3yWnCsTNorNQJtfqyMEb80CEzb9NxE84LJn4gnTbDV-kneVd23zsTvBMCBdl1fdOApgvg4RrHvOTUuoK0';
 function vapidBytes(base64){const padded=(base64+'='.repeat((4-base64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(padded),c=>c.charCodeAt(0))}
@@ -411,28 +411,37 @@ async function requestNotificationPermission(){
  if(notificationPermission()==='unsupported'){notify(notificationStatus());return}
  try{notificationPromptAttempted=true;const result=await Notification.requestPermission();await persistNotificationPreferences({...state.notificationPrefs,enabled:result==='granted'});if(result==='granted')try{await registerRemotePush()}catch(e){console.warn('Registro push pendente:',e)}if(currentFeature==='configuracoes')await page('configuracoes');notify(result==='granted'?'Notificações permitidas neste aparelho.':notificationStatus())}catch(e){notify('Não foi possível ativar: '+e.message)}
 }
-async function saveNotificationPreferences(){const previous=state.notificationPrefs||{enabled:false,sound:false,vibration:false};const prefs={enabled:el('ntEnabled').checked,sound:el('ntSound').checked,vibration:el('ntVibrate').checked,volume:Math.max(0,Math.min(100,Number(el('ntVolume')?.value??previous.volume??85)))};if(prefs.enabled&&notificationPermission()!=='granted'){el('ntEnabled').checked=false;await requestNotificationPermission();return}try{await persistNotificationPreferences(prefs);notify('Preferências de notificação salvas.')}catch(e){state.notificationPrefs=previous;for(const [id,key]of [['ntEnabled','enabled'],['ntSound','sound'],['ntVibrate','vibration']])el(id).checked=previous[key];notify('Não foi possível salvar: '+e.message)}}
+async function saveNotificationPreferences(){const previous=state.notificationPrefs||{enabled:false,sound:false,vibration:false};const prefs={enabled:el('ntEnabled').checked,sound:el('ntSound').checked,vibration:el('ntVibrate').checked,volume:Math.max(0,Math.min(100,Number(el('ntVolume')?.value??previous.volume??85))),tone:el('ntTone')?.value||previous.tone||'cristal'};if(prefs.enabled&&notificationPermission()!=='granted'){el('ntEnabled').checked=false;await requestNotificationPermission();return}try{await persistNotificationPreferences(prefs);notify('Preferências de notificação salvas.')}catch(e){state.notificationPrefs=previous;for(const [id,key]of [['ntEnabled','enabled'],['ntSound','sound'],['ntVibrate','vibration']])el(id).checked=previous[key];notify('Não foi possível salvar: '+e.message)}}
 let notificationAudio;
+async function previewNotificationTone(tone){state.notificationPrefs={...(state.notificationPrefs||{}),tone};save();await playNotificationSound();try{await persistNotificationPreferences(state.notificationPrefs)}catch(e){console.warn('Não foi possível salvar toque:',e)}}
 async function playNotificationSound(){
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return false;
   notificationAudio=notificationAudio||new Audio();await notificationAudio.resume();
-  const configuredVolume=Number(state.notificationPrefs?.volume);const volume=Number.isFinite(configuredVolume)?Math.max(0,Math.min(100,configuredVolume)):85;
+  const volume=Math.max(0,Math.min(100,Number(state.notificationPrefs?.volume??85)));
   if(volume===0)return true;
-  const now=notificationAudio.currentTime+.025;
-  const notes=[{at:0,duration:.55,hz:740},{at:.62,duration:.55,hz:880},{at:1.24,duration:.8,hz:1046.5}];
-  for(const note of notes){
-   const start=now+note.at,end=start+note.duration;
-   const tone=notificationAudio.createOscillator(),gain=notificationAudio.createGain();
-   const vibrato=notificationAudio.createOscillator(),depth=notificationAudio.createGain();
-   tone.type='square';tone.frequency.setValueAtTime(note.hz*.95,start);tone.frequency.exponentialRampToValueAtTime(note.hz,start+.075);tone.frequency.setValueAtTime(note.hz,end-.11);tone.frequency.exponentialRampToValueAtTime(note.hz*.985,end);
-   vibrato.frequency.value=5.1;depth.gain.setValueAtTime(0,start);depth.gain.linearRampToValueAtTime(6,start+.12);vibrato.connect(depth);depth.connect(tone.detune);
-   gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(Math.max(.0001,.55*Math.pow(volume/100,2)),start+.045);gain.gain.setValueAtTime(Math.max(.0001,.45*Math.pow(volume/100,2)),Math.max(start+.05,end-.14));gain.gain.exponentialRampToValueAtTime(.0001,end);
-   tone.connect(gain);gain.connect(notificationAudio.destination);tone.start(start);tone.stop(end+.015);vibrato.start(start);vibrato.stop(end+.015);
-   tone.onended=()=>{tone.disconnect();gain.disconnect();vibrato.disconnect();depth.disconnect()};
+  const tones={
+   cristal:{wave:'sine',notes:[[0,.12,1318.5],[.15,.17,1760],[.35,.12,1568]]},
+   pop:{wave:'triangle',notes:[[0,.15,784],[.18,.19,1174.7]]},
+   digital:{wave:'square',notes:[[0,.09,880],[.12,.09,1174.7],[.24,.13,1568]]},
+   urgente:{wave:'square',notes:[[0,.1,1046.5],[.15,.1,1046.5],[.3,.1,1318.5],[.45,.16,1318.5]]}
+  };
+  const choice=tones[state.notificationPrefs?.tone]||tones.cristal;
+  const now=notificationAudio.currentTime+.015;
+  for(const [offset,duration,frequency] of choice.notes){
+   const start=now+offset,end=start+duration;
+   const osc=notificationAudio.createOscillator(),gain=notificationAudio.createGain();
+   osc.type=choice.wave;osc.frequency.setValueAtTime(frequency,start);
+   const peak=Math.max(.0001,(choice.wave==='square'?.16:.34)*Math.pow(volume/100,1.4));
+   gain.gain.setValueAtTime(.0001,start);
+   gain.gain.linearRampToValueAtTime(peak,start+.012);
+   gain.gain.setValueAtTime(peak,Math.max(start+.015,end-.045));
+   gain.gain.exponentialRampToValueAtTime(.0001,end);
+   osc.connect(gain);gain.connect(notificationAudio.destination);
+   osc.start(start);osc.stop(end+.01);osc.onended=()=>{osc.disconnect();gain.disconnect()};
   }
   return true;
- }catch(_){return false}
+ }catch(e){console.warn('Falha ao tocar alerta:',e);return false}
 }
 async function testNotification(){
  const prefs=state.notificationPrefs||{};let details=[];
