@@ -110,7 +110,7 @@ async function transitionScreen(id,render){
   if(serial===navigationSerial)navigationAnimations=[];
 }
 function updateInviteVisibility(){el('invite').classList.toggle('hide',demoMode||!state.relationshipId||(state.members||[]).length>=(state.tipo==='Trisal'?3:2));}
-function showApp(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');startPartnerChecks();if(!demoMode&&notificationPermission()==='granted')registerRemotePush().catch(e=>console.warn('Registro push pendente:',e));el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
+function showApp(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');startPartnerChecks();if(!demoMode&&notificationPermission()==='granted')registerRemotePush().catch(e=>{console.warn('Registro push pendente:',e);notify('Não foi possível registrar este aparelho para receber notificações push.')});el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
 function home(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();state.currentPage='home';save();setActivePage('home');return transitionScreen('app')}
 async function page(p,record=true){
   if(p==='configuracoes')offerNotificationPermission();
@@ -297,7 +297,7 @@ async function saveReminder(){
  try{const values={p_timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,p_title:title,p_recipients:recipients,p_first_at:first.toISOString(),p_repeat:repeat,p_interval:repeat&&mode!=='defined'?Number(mode):null,p_times:repeat&&mode==='defined'?[...reminderTimes]:[]};
  let row;if(demoMode)row={id:crypto.randomUUID(),creator_id:reminderUserId(),title,recipients,first_at:values.p_first_at,repeat_until_done:repeat,interval_minutes:values.p_interval,defined_times:values.p_times,done:false};
  else{const {data,error}=await sb.rpc('tefalei_create_reminder',values);if(error)throw error;row=data}
- state.cloudReminders=state.cloudReminders||[];state.cloudReminders.unshift(row);save();if(!demoMode&&row?.id)dispatchRemotePush(row.id);reminderTimes=[];notify(demoMode?'Lembrete salvo nesta demonstração.':'Lembrete salvo online.');page('lembretes');
+ state.cloudReminders=state.cloudReminders||[];state.cloudReminders.unshift(row);save();if(!demoMode&&row?.id&&immediate)await dispatchRemotePush(row.id);reminderTimes=[];notify(demoMode?'Lembrete salvo nesta demonstração.':'Lembrete salvo online.');page('lembretes');
  }catch(e){if(el('remStatus'))el('remStatus').textContent='Não foi possível salvar: '+e.message}finally{reminderSaving=false;if(button.isConnected){button.disabled=false;button.textContent='Criar lembrete'}}
 }
 function reminderVisible(row,id=reminderUserId()){return row.creator_id===id||(row.recipients||[]).includes(id)}
@@ -336,10 +336,10 @@ async function sendUrgentAlert(){
  const me=reminderUserId(),recipients=reminderPeople().filter(p=>p.user_id!==me).map(p=>p.user_id);
  if(!recipients.length){notify('Conecte outra pessoa antes de enviar um aviso urgente.');return}
  try{
-  const values={p_timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,p_title:'🚨 AVISO URGENTE: preciso de ajuda. Entre em contato comigo!',p_recipients:recipients,p_first_at:new Date(Date.now()+60000).toISOString(),p_repeat:false,p_interval:null,p_times:[]};
+  const values={p_timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,p_title:'🚨 AVISO URGENTE: preciso de ajuda. Entre em contato comigo!',p_recipients:recipients,p_first_at:new Date(Date.now()+1000).toISOString(),p_repeat:false,p_interval:null,p_times:[]};
   const {data,error}=await sb.rpc('tefalei_create_reminder',values);if(error)throw error;
-  state.cloudReminders=state.cloudReminders||[];if(data)state.cloudReminders.unshift(data);save();if(data?.id)dispatchRemotePush(data.id);
-  notify('Aviso urgente registrado. A outra pessoa poderá vê-lo no aplicativo. A entrega imediata com o app fechado ainda não está disponível.');
+  state.cloudReminders=state.cloudReminders||[];if(data)state.cloudReminders.unshift(data);save();if(data?.id)await dispatchRemotePush(data.id);
+  notify('Aviso urgente registrado. Confira se o destinatário recebeu a notificação.');
  }catch(e){notify('Não foi possível enviar o aviso: '+e.message)}
 }
 let partnerCheckTimer=null,partnerCheckBusy=false,partnerCheckInitializedFor=null;
@@ -403,8 +403,8 @@ async function registerRemotePush(){
 }
 async function dispatchRemotePush(reminderId){
  if(demoMode||!reminderId||!TEFALEI_VAPID_PUBLIC_KEY)return;
- try{const {error}=await sb.functions.invoke('tefalei-send-push',{body:{reminder_id:reminderId}});if(error)console.warn('Push remoto indisponível:',error)}
- catch(e){console.warn('Push remoto indisponível:',e)}
+ try{const {data,error}=await sb.functions.invoke('tefalei-send-push',{body:{reminder_id:reminderId}});if(error)throw error;if(!data?.delivered)notify('Aviso salvo, mas nenhum dispositivo confirmou recebimento via push. Confira as notificações no aparelho destinatário.');return data?.delivered||0}
+ catch(e){console.warn('Push remoto indisponível:',e);notify('Aviso salvo, mas o envio push falhou. Verifique os Logs da função tefalei-send-push no Supabase.');return 0}
 }
 async function requestNotificationPermission(){
  if(demoMode){notify('O modo demonstração não solicita permissões.');return}
