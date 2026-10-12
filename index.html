@@ -264,7 +264,7 @@ function lembretes(){return `<h2>Pedidos e lembretes</h2><div class='card'>
 <label class='small' for='remText'>Título</label><input class='field' id='remText' maxlength='300' placeholder='Ex.: Passar no mercado e comprar pão'>
 <label class='small' for='remWho'>Quem deve receber?</label><select class='field' id='remWho'>${reminderRecipientOptions()}</select>
 <div class='row'><div style='flex:1'><label class='small' for='remDate'>Data do primeiro aviso</label><input class='field' id='remDate' type='date' value='${localDateKey(new Date())}'></div><div style='flex:1'><label class='small' for='remAt'>Notificar às</label><input class='field' id='remAt' type='time'></div></div>
-<p class='small'>Horários no fuso do seu dispositivo.</p>
+<p class='small'>Deixe o horário vazio para notificar imediatamente. Horários definidos usam o fuso do seu dispositivo.</p>
 <div class='card' style='margin:12px 0'><label><input id='remUntil' type='checkbox' onchange='toggleReminderRepeat()'> Notificar até ser realizado</label></div>
 <div id='remRepeatPanel' class='card hide'><label class='small' for='remMode'>Depois do primeiro aviso, repetir</label><select class='field' id='remMode' onchange='toggleDefinedTimes()'><option value='15'>A cada 15 minutos</option><option value='20'>A cada 20 minutos</option><option value='35'>A cada 35 minutos</option><option value='60'>A cada 1 hora</option><option value='defined'>Definir horários</option></select>
 <div id='definedTimes' class='hide'><label class='small' for='newTime'>Horário de repetição</label><div class='row'><input class='field' style='flex:1' id='newTime' type='time'><button class='btn ghost' onclick='addDefinedTime()'>+ Horário</button></div><div id='timeList'>${renderReminderTimeChips()}</div><p class='small'>Esses horários se repetem a cada dia, após o primeiro aviso, até concluir.</p></div></div>
@@ -288,8 +288,9 @@ async function loadReminderState(){
 }
 async function saveReminder(){
  if(reminderSaving)return;const title=el('remText').value.trim(),date=el('remDate').value,time=el('remAt').value,repeat=el('remUntil').checked,mode=el('remMode').value;
- if(!title){notify('Informe o título.');return}if(!date||!time){notify('Escolha a data e o horário do primeiro aviso.');return}
- const first=new Date(date+'T'+time);if(!Number.isFinite(first.getTime())||first.getTime()<=Date.now()){notify('Escolha um horário futuro.');return}
+ if(!title){notify('Informe o título.');return}const immediate=!time;
+ const first=immediate?new Date(Date.now()+1000):new Date(date+'T'+time);
+ if(!immediate&&(!date||!Number.isFinite(first.getTime())||first.getTime()<=Date.now())){notify('Escolha uma data e um horário futuro, ou deixe o horário vazio para notificar imediatamente.');return}
  if(repeat&&mode==='defined'&&!reminderTimes.length){notify('Adicione pelo menos um horário de repetição.');return}
  const recipients=selectedReminderRecipients(el('remWho').value);if(!recipients.length||recipients.some(x=>!x)){notify('Escolha quem deve receber.');return}
  const button=el('remSave');reminderSaving=true;button.disabled=true;button.textContent='Salvando…';
@@ -385,7 +386,7 @@ async function profileAction(){
  if(!demoMode){const {error}=await sb.rpc('tefalei_save_profile_v2',values);if(error)throw error}
  Object.assign(state,{name:values.p_nome,nick:values.p_apelido,phone:values.p_celular,loveName:values.p_parceiro,cor:values.p_cor,birthDate:values.p_nascimento||'',gender:values.p_genero||'',genderDescription:values.p_genero==='autodescricao'?values.p_descricao:''});document.documentElement.style.setProperty('--me',state.cor);save();profileEditing=false;notify('Perfil salvo.');await page('perfil');
 }
-async function loadNotificationPreferences(){if(demoMode)return;const {data,error}=await sb.from('tefalei_notification_preferences').select('enabled,sound,vibration').eq('user_id',state.userId).maybeSingle();if(error)throw error;state.notificationPrefs=data||{enabled:false,sound:false,vibration:false};save()}
+async function loadNotificationPreferences(){if(demoMode)return;const {data,error}=await sb.from('tefalei_notification_preferences').select('enabled,sound,vibration').eq('user_id',state.userId).maybeSingle();if(error)throw error;state.notificationPrefs={...(data||{enabled:false,sound:false,vibration:false}),volume:Math.max(0,Math.min(100,Number(state.notificationPrefs?.volume??85)))};save()}
 async function persistNotificationPreferences(prefs){if(!demoMode){const {volume,...cloudPrefs}=prefs;const {error}=await sb.from('tefalei_notification_preferences').upsert({user_id:state.userId,...cloudPrefs,updated_at:new Date().toISOString()});if(error)throw error}state.notificationPrefs=prefs;save();if(prefs.enabled&&notificationPermission()==='granted')registerRemotePush().catch(e=>console.warn('Registro push pendente:',e))}
 // Set this public VAPID key after deploying the Supabase push sender.
 const TEFALEI_VAPID_PUBLIC_KEY='BLpycb3yWnCsTNorNQJtfqyMEb80CEzb9NxE84LJn4gnTbDV-kneVd23zsTvBMCBdl1fdOApgvg4RrHvOTUuoK0';
@@ -416,15 +417,17 @@ async function playNotificationSound(){
  try{
   const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return false;
   notificationAudio=notificationAudio||new Audio();await notificationAudio.resume();
+  const configuredVolume=Number(state.notificationPrefs?.volume);const volume=Number.isFinite(configuredVolume)?Math.max(0,Math.min(100,configuredVolume)):85;
+  if(volume===0)return true;
   const now=notificationAudio.currentTime+.025;
-  const notes=[{at:0,duration:.68,hz:880},{at:.77,duration:.21,hz:1108.73},{at:1.02,duration:.48,hz:1318.51}];
+  const notes=[{at:0,duration:.55,hz:740},{at:.62,duration:.55,hz:880},{at:1.24,duration:.8,hz:1046.5}];
   for(const note of notes){
    const start=now+note.at,end=start+note.duration;
    const tone=notificationAudio.createOscillator(),gain=notificationAudio.createGain();
    const vibrato=notificationAudio.createOscillator(),depth=notificationAudio.createGain();
-   tone.type='sine';tone.frequency.setValueAtTime(note.hz*.95,start);tone.frequency.exponentialRampToValueAtTime(note.hz,start+.075);tone.frequency.setValueAtTime(note.hz,end-.11);tone.frequency.exponentialRampToValueAtTime(note.hz*.985,end);
+   tone.type='square';tone.frequency.setValueAtTime(note.hz*.95,start);tone.frequency.exponentialRampToValueAtTime(note.hz,start+.075);tone.frequency.setValueAtTime(note.hz,end-.11);tone.frequency.exponentialRampToValueAtTime(note.hz*.985,end);
    vibrato.frequency.value=5.1;depth.gain.setValueAtTime(0,start);depth.gain.linearRampToValueAtTime(6,start+.12);vibrato.connect(depth);depth.connect(tone.detune);
-   gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(Math.max(.0001,.55*Math.pow(Math.max(0,Math.min(100,Number(state.notificationPrefs?.volume??85)))/100,2)),start+.045);gain.gain.setValueAtTime(Math.max(.0001,.45*Math.pow(Math.max(0,Math.min(100,Number(state.notificationPrefs?.volume??85)))/100,2)),Math.max(start+.05,end-.14));gain.gain.exponentialRampToValueAtTime(.0001,end);
+   gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(Math.max(.0001,.55*Math.pow(volume/100,2)),start+.045);gain.gain.setValueAtTime(Math.max(.0001,.45*Math.pow(volume/100,2)),Math.max(start+.05,end-.14));gain.gain.exponentialRampToValueAtTime(.0001,end);
    tone.connect(gain);gain.connect(notificationAudio.destination);tone.start(start);tone.stop(end+.015);vibrato.start(start);vibrato.stop(end+.015);
    tone.onended=()=>{tone.disconnect();gain.disconnect();vibrato.disconnect();depth.disconnect()};
   }
