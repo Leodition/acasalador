@@ -388,7 +388,7 @@ async function profileAction(){
 async function loadNotificationPreferences(){if(demoMode)return;const {data,error}=await sb.from('tefalei_notification_preferences').select('enabled,sound,vibration').eq('user_id',state.userId).maybeSingle();if(error)throw error;state.notificationPrefs=data||{enabled:false,sound:false,vibration:false};save()}
 async function persistNotificationPreferences(prefs){if(!demoMode){const {error}=await sb.from('tefalei_notification_preferences').upsert({user_id:state.userId,...prefs,updated_at:new Date().toISOString()});if(error)throw error}state.notificationPrefs=prefs;save()}
 // Set this public VAPID key after deploying the Supabase push sender.
-const TEFALEI_VAPID_PUBLIC_KEY='';
+const TEFALEI_VAPID_PUBLIC_KEY='BLpycb3yWnCsTNorNQJtfqyMEb80CEzb9NxE84LJn4gnTbDV-kneVd23zsTvBMCBdl1fdOApgvg4RrHvOTUuoK0';
 function vapidBytes(base64){const padded=(base64+'='.repeat((4-base64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(padded),c=>c.charCodeAt(0))}
 async function registerRemotePush(){
  if(demoMode||!state.logged||notificationPermission()!=='granted'||!TEFALEI_VAPID_PUBLIC_KEY)return false;
