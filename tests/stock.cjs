@@ -1,0 +1,22 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync(require('path').join(__dirname,'..','index.html'),'utf8');
+const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+new vm.Script(script);
+const part=script.slice(script.indexOf('function petDate'),script.indexOf('function stockFields'));
+const ctx={};vm.createContext(ctx);vm.runInContext(part,ctx);
+assert.equal(ctx.petDate('2020-03-09'),'09/03/2020');
+const t=Date.parse('2026-10-12T12:00:00Z');
+let f=ctx.stockForecast({quantity:30,minimum:2,average_consumption:2,consumption_period_days:1,alert_days:3,updated_at:'2026-10-02T12:00:00Z'},t);
+assert.equal(f.remaining,10);assert.equal(f.days,5);assert.equal(f.alert,false);
+f=ctx.stockForecast({quantity:6,minimum:0,average_consumption:2,consumption_period_days:1,alert_days:3,updated_at:new Date(t).toISOString()},t);assert.equal(f.alert,true);
+f=ctx.stockForecast({quantity:30,minimum:0,updated_at:new Date(t).toISOString()},t);assert.equal(f.days,null);assert.equal(f.remaining,30);
+f=ctx.stockForecast({quantity:1,minimum:0,average_consumption:2,consumption_period_days:1,updated_at:'2026-10-02T12:00:00Z'},t);assert.equal(f.remaining,0);assert.equal(f.alert,true);
+const order=[...html.matchAll(/class='tile' onclick="page\('([^']+)'\)/g)].map(m=>m[1]);assert.deepEqual(order,['compras','lembretes','agenda','lugares','dinheiro','perfil']);
+assert(!html.includes('Ir para Nós'));
+console.log('PASS: syntax, dates, menu order, consumption, zero consumption, depletion and advance alerts');
+
+const ui={state:{members:[]},currentFeature:'compras',demoMode:false,esc:x=>String(x??'').replaceAll('<','&lt;').replaceAll("'",'&#39;'),el:()=>null};vm.createContext(ui);
+vm.runInContext(script.slice(script.indexOf('let shopState='),script.indexOf('const genderOptions=')),ui);
+vm.runInContext(`shopState={pets:[{id:'pet',name:'Kira',species:'Cachorro',birthday:'2020-03-09'}],sections:[{id:'sec',name:'Kira',pet_id:'pet'}],shopping:[],stock:[{id:'item',section_id:'sec',title:'Tapetes',unit:'un.',quantity:1,minimum:2,average_consumption:2,consumption_period_days:1,alert_days:3,updated_at:new Date().toISOString()}],loaded:true}`,ui);
+const view=vm.runInContext('compras()',ui);assert(view.includes('Kira'));assert(view.includes('Repor estoque'));assert(view.includes('stockUse_sec'));assert(view.includes('stockUse_item'));assert(view.includes('saveStock'));assert(vm.runInContext('petsProfileHtml()',ui).includes('09/03/2020'));
+console.log('PASS: stock and pet screen rendering');
