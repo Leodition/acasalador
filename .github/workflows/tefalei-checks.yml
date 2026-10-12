@@ -1,0 +1,34 @@
+name: TeFalei static checks
+on:
+  push:
+    branches: [tefalei-melhorias]
+  pull_request:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate HTML JavaScript, manifest and service worker
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const vm=require('node:vm');
+          const assert=require('node:assert/strict');
+          const html=fs.readFileSync('index.html','utf8');
+          const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
+          assert(scripts.length,'Missing inline JavaScript');
+          scripts.forEach((s,i)=>new vm.Script(s,{filename:'inline-'+i+'.js'}));
+          const manifest=JSON.parse(fs.readFileSync('manifest.webmanifest','utf8'));
+          assert.equal(manifest.name,'TeFalei');
+          assert(manifest.icons?.length,'Missing install icon');
+          manifest.icons.forEach(icon=>assert(fs.existsSync(icon.src.replace(/^\.\//,'')),'Missing icon '+icon.src));
+          new vm.Script(fs.readFileSync('tefalei-notifications-sw.js','utf8'));
+          for(const name of ['sendUrgentAlert','renderReminderHistory','centralNotificacoes','checkPartnerActivity','configuracoes']){
+            assert(html.includes('function '+name+'('),'Missing '+name);
+          }
+          console.log('Static checks passed. Live push and multi-device tests are NOT covered.');
+          NODE

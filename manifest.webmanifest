@@ -5,5 +5,13 @@
   "display": "standalone",
   "background_color": "#160f12",
   "theme_color": "#160f12",
-  "description": "Organização compartilhada para casal ou trisal."
+  "description": "Organização compartilhada para casal ou trisal.",
+  "icons": [
+    {
+      "src": "./tefalei-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
