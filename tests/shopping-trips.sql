@@ -1,0 +1,30 @@
+begin;
+do $$
+declare rel uuid; actor uuid; partner uuid; item uuid; trip public.tefalei_shopping_trips; denied boolean:=false; total integer;
+begin
+ select m.relationship_id into rel from public.relationship_members m where not exists(select 1 from public.tefalei_shopping_trips t where t.relationship_id=m.relationship_id and t.status='open') group by m.relationship_id having count(*)>=2 limit 1;
+ if rel is null then raise exception 'Não há relacionamento livre para validar'; end if;
+ select user_id into actor from public.relationship_members where relationship_id=rel order by user_id limit 1;
+ select user_id into partner from public.relationship_members where relationship_id=rel and user_id<>actor order by user_id limit 1;
+ perform set_config('request.jwt.claim.sub',actor::text,true);
+ insert into public.tefalei_shopping_items(relationship_id,title,created_by) values(rel,'_teste_temporario_',actor) returning id into item;
+ trip:=public.tefalei_start_shopping_trip(rel,array[actor]);
+ trip:=public.tefalei_pick_shopping_item(trip.id,item,true);
+ if (select purchased from public.tefalei_shopping_items where id=item) then raise exception 'Peguei marcou pagamento indevidamente'; end if;
+ perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
+ begin perform public.tefalei_pick_shopping_item(trip.id,item,false);exception when others then denied:=true;end;
+ if not denied then raise exception 'Participante externo não foi bloqueado'; end if;
+ perform set_config('request.jwt.claim.sub',actor::text,true);
+ trip:=public.tefalei_finish_shopping_trip(trip.id,true);
+ if not (select purchased from public.tefalei_shopping_items where id=item) or jsonb_array_length(trip.receipt)<>1 then raise exception 'Compra ou lista não registrada'; end if;
+ select count(*) into total from public.tefalei_system_notifications where payload->>'trip_id'=trip.id::text;
+ perform public.tefalei_finish_shopping_trip(trip.id,true);
+ if (select count(*) from public.tefalei_system_notifications where payload->>'trip_id'=trip.id::text)<>total then raise exception 'Aviso duplicado ao concluir novamente'; end if;
+ insert into public.tefalei_shopping_items(relationship_id,title,created_by) values(rel,'_teste_dupla_temporario_',actor) returning id into item;
+ trip:=public.tefalei_start_shopping_trip(rel,array[actor,partner]);
+ trip:=public.tefalei_pick_shopping_item(trip.id,item,true);
+ trip:=public.tefalei_finish_shopping_trip(trip.id,true);
+ if cardinality((select purchased_participants from public.tefalei_shopping_items where id=item))<>2 then raise exception 'Compra compartilhada não registrada';end if;
+end;$$;
+rollback;
+select 'PASS: item pego não está pago; acesso externo bloqueado; compra e lista registradas; conclusão sem duplicar aviso; compradores compartilhados preservados; dados de teste revertidos' as validacao;

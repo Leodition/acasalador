@@ -17,11 +17,11 @@ assert(!html.includes('Ir para Nós'));
 console.log('PASS: syntax, dates, menu order, consumption, zero consumption, depletion and advance alerts');
 
 const ui={state:{members:[]},currentFeature:'compras',demoMode:false,brazilToday:()=> '2026-10-12',esc:x=>String(x??'').replaceAll('<','&lt;').replaceAll("'",'&#39;'),el:()=>null};vm.createContext(ui);
-vm.runInContext(script.slice(script.indexOf('let shopState='),script.indexOf('const genderOptions=')),ui);
+vm.runInContext(script.slice(script.indexOf('let shoppingTrip='),script.indexOf('const genderOptions=')),ui);
 vm.runInContext(`shopState={pets:[{id:'pet',name:'Kira',species:'Cachorro',birthday:'2020-03-09'}],sections:[{id:'sec',name:'Kira',pet_id:'pet'}],shopping:[],stock:[{id:'item',section_id:'sec',title:'Tapetes',unit:'un.',quantity:1,minimum:2,average_consumption:2,consumption_period_days:1,alert_days:3,updated_at:new Date().toISOString()}],loaded:true}`,ui);
 const closed=vm.runInContext('compras()',ui);assert(closed.includes('Ver lista'));vm.runInContext("petStockOpen=true;petStockMode='list'",ui);const list=vm.runInContext('compras()',ui);assert(list.includes('Tapetes'));assert(!list.includes('stockName_sec'));vm.runInContext("petStockOpen=false;petStockMode='manage'",ui);assert(closed.includes('Gerenciar estoque'));assert(!closed.includes('Cadastrar pet'));assert(!closed.includes('Gerenciar pets'));assert(!closed.includes('stockName_sec'));assert(!/<details class='card' open/.test(closed));
 vm.runInContext('petStockOpen=true',ui);
-const view=vm.runInContext('compras()',ui);assert(view.includes('Kira'));assert(view.includes('Repor estoque'));assert(view.includes('stockUse_sec'));assert(view.includes('stockUse_item'));assert(view.includes('saveStock'));assert(vm.runInContext('petsProfileHtml()',ui).includes('09/03/2020'));
+const view=vm.runInContext('compras()',ui);assert(view.includes('Kira'));assert(view.includes('Repor estoque'));assert(view.includes('stockUse_sec'));assert(vm.runInContext('stockEditForm(shopState.stock[0])',ui).includes('stockUse_item'));assert(view.includes('editStockItem'));assert(!view.includes('adjustStock'));assert(!view.includes('deleteStockItem'));assert(view.includes('stock-due'));assert(vm.runInContext('petsProfileHtml()',ui).includes('09/03/2020'));
 for(const period of ['Diário','Semanal','Quinzenal','Mensal','Outro período'])assert(view.includes(period));
 vm.runInContext("toggleStockSection({open:true},'category:Comida')",ui);assert(vm.runInContext('compras()',ui).includes("<details class='card' open"));vm.runInContext("toggleStockSection({open:false},'category:Comida')",ui);
 console.log('PASS: stock and pet screen rendering');

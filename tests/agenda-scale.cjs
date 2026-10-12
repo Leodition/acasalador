@@ -1,0 +1,7 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const script=fs.readFileSync(require('node:path').join(__dirname,'..','index.html'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script);
+const item={id:'work',kind:'routine',category:'work',weekdays:[1],start_time:'08:00',end_time:'18:00',repeat_interval_weeks:2,repeat_anchor_date:'2026-10-12'};
+const ctx={agendaItems:()=>[item],relationshipMilestonesOn:()=>[]};vm.createContext(ctx);vm.runInContext(script.slice(script.indexOf('function agendaPreviousDate'),script.indexOf('function itemTime')),ctx);
+assert(ctx.routineMatchesDate(item,'2026-10-12'));assert(!ctx.routineMatchesDate(item,'2026-10-19'));assert(ctx.routineMatchesDate(item,'2026-10-26'));assert(!ctx.routineMatchesDate(item,'2026-10-05'));assert.equal(ctx.occurrencesOn('2026-10-12').length,0);assert.equal(ctx.occurrencesOn('2026-10-12',true).length,1);assert.equal(ctx.occurrencesOn('2026-10-19',true).length,0);
+item.start_time='22:00';item.end_time='06:00';assert.equal(ctx.occurrencesOn('2026-10-13',true)[0].continuation,true);assert.equal(ctx.occurrencesOn('2026-10-20',true).length,0);
+const weekly={...item,repeat_interval_weeks:1,repeat_anchor_date:null};assert(ctx.routineMatchesDate(weekly,'2026-10-19'));console.log('PASS: work is hidden from markers and visible in day details; fortnight alternates; overnight honors the active week; legacy weekly schedules remain valid');

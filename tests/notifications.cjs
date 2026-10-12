@@ -4,6 +4,7 @@ const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];new vm.Script(script)
 let clock=Date.parse('2026-10-12T12:00:00Z');class Clock extends Date{static now(){return clock}}
 const storage=new Map(),state={cloudReminders:[{id:'a',creator_id:'partner',title:'Primeiro',created_at:'2026-10-12'},{id:'b',creator_id:'partner',title:'Segundo',created_at:'2026-10-12'}]};
 const ctx={state,Date:Clock,reminderUserId:()=> 'me',reminderVisible:()=>true,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},currentFeature:'notificacoes',page:()=>{},esc:x=>String(x)};vm.createContext(ctx);
+vm.runInContext(script.slice(script.indexOf('function notificationReceipt('),script.indexOf('function shopRel()')),ctx);
 vm.runInContext(script.slice(script.indexOf('let showArchivedNotifications='),script.indexOf('function configuracoes()')),ctx);
 assert.equal(ctx.notificationInbox().unread.length,2);ctx.markNotificationRead('a');assert.equal(ctx.notificationInbox().unread.length,1);assert.equal(ctx.notificationInbox().archived.length,1);assert(!ctx.centralNotificacoes().includes('Primeiro'));
 ctx.toggleArchivedNotifications(true);assert(ctx.centralNotificacoes().includes('Primeiro'));assert(!ctx.centralNotificacoes().includes('Marcar como lida'));assert(!ctx.centralNotificacoes().includes('30 dias'));
