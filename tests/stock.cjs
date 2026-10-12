@@ -19,13 +19,16 @@ const ui={state:{members:[]},currentFeature:'compras',demoMode:false,esc:x=>Stri
 vm.runInContext(script.slice(script.indexOf('let shopState='),script.indexOf('const genderOptions=')),ui);
 vm.runInContext(`shopState={pets:[{id:'pet',name:'Kira',species:'Cachorro',birthday:'2020-03-09'}],sections:[{id:'sec',name:'Kira',pet_id:'pet'}],shopping:[],stock:[{id:'item',section_id:'sec',title:'Tapetes',unit:'un.',quantity:1,minimum:2,average_consumption:2,consumption_period_days:1,alert_days:3,updated_at:new Date().toISOString()}],loaded:true}`,ui);
 const view=vm.runInContext('compras()',ui);assert(view.includes('Kira'));assert(view.includes('Repor estoque'));assert(view.includes('stockUse_sec'));assert(view.includes('stockUse_item'));assert(view.includes('saveStock'));assert(vm.runInContext('petsProfileHtml()',ui).includes('09/03/2020'));
+assert(view.includes('Cadastrar pet'));assert(view.includes('Gerenciar pets'));assert(!/<details class='card' open/.test(view));
+vm.runInContext("toggleStockSection({open:true},'sec')",ui);assert(vm.runInContext('compras()',ui).includes("<details class='card' open"));vm.runInContext("toggleStockSection({open:false},'sec')",ui);
 console.log('PASS: stock and pet screen rendering');
 vm.runInContext(`shopState.sections.push({id:'old-kira',name:'Kira',pet_id:null});shopState.stock.push({id:'old-item',section_id:'old-kira',title:'Ração antiga',unit:'kg',quantity:2,minimum:0,updated_at:new Date().toISOString()});shopState.shopping=[{id:'rice',title:'Arroz',section_id:null,purchased:false,created_at:'2026-10-12'},{id:'beans',title:'Feijão',section_id:'old-kira',purchased:true,purchased_by:'buyer',created_at:'2026-10-12'}];state.members=[{user_id:'buyer',cor:'#123456'}]`,ui);
 const revised=vm.runInContext('compras()',ui);
-assert.equal((revised.match(/<h3>Kira/g)||[]).length,1);
+assert.equal((revised.match(/<summary><b>Kira/g)||[]).length,1);
 assert(revised.includes('Ração antiga'));
 for(const category of ['Comida','Limpeza','Higiene','Besteirinhas'])assert(revised.includes(category));
 assert(revised.includes('Definir seção'));assert(revised.includes('Excluir Arroz da lista'));assert(revised.includes('shopping-bought'));assert(revised.includes('--buyer-color:#123456'));assert(!revised.includes('<h3>Comprados'));assert(!revised.includes('sectionPet'));assert(!revised.includes('Criar seção'));
+assert(revised.includes('<h4>Sem seção</h4>'));assert(revised.includes('<h4>Kira</h4>'));
 let values={value:' arroz ',focus(){this.focused=true}},written;
 ui.el=id=>id==='shopTitle'?values:null;ui.shopWrite=async(table,payload)=>{written={table,payload};return true};
-(async()=>{await vm.runInContext('addShopping()',ui);assert.equal(written.payload.title,'arroz');assert.equal(written.payload.section_id,null);assert.equal(values.value,'');assert(values.focused);await vm.runInContext("setShoppingSection('rice','sec')",ui);assert.equal(written.payload.section_id,'sec');console.log('PASS: quick add, optional section, deletion control, purchased color and duplicate pet grouping')})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{await vm.runInContext('addShopping()',ui);assert.equal(written.payload.title,'arroz');assert.equal(written.payload.section_id,null);assert.equal(values.value,'');assert(values.focused);ui.el=id=>id==='shopTitle'?{value:'ração',focus(){}}:id==='shopSection'?{value:'sec'}:null;await vm.runInContext('addShopping()',ui);assert.equal(written.payload.section_id,'sec');await vm.runInContext("setShoppingSection('rice','sec')",ui);assert.equal(written.payload.section_id,'sec');console.log('PASS: quick add, optional section, deletion control, purchased color and duplicate pet grouping')})().catch(e=>{console.error(e);process.exitCode=1});
