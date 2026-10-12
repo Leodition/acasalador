@@ -117,6 +117,7 @@ async function page(p,record=true){
   if(!demoMode&&state.logged)startPartnerChecks();
   if(p==='agenda'&&!agendaLoading)loadAgendaState();
   if((p==='compras'||p==='perfil')&&!shopState.loading)loadShop();
+  if(p==='compras'&&!demoMode&&state.logged)loadRelationshipPeople().then(()=>shopRefresh()).catch(()=>{});
   if(p==='perfil'&&!demoMode&&state.logged){try{await loadRelationshipPeople()}catch(e){notify(e.message)}}
   state.currentPage=p;save();if(record)recordAppPage(p);
   const screens={agenda,dinheiro,lugares,lembretes,compras,perfil,configuracoes,notificacoes:centralNotificacoes};if(!screens[p])return;
@@ -324,7 +325,7 @@ async function shopWrite(table,payload,id){if(demoMode){notify('Entre na conta p
 async function shopDelete(table,id){if(demoMode)return;try{const {error}=await sb.from(table).delete().eq('id',id).eq('relationship_id',shopRel());if(error)throw error;await loadShop()}catch(e){notify('Não foi possível excluir: '+e.message)}}
 function shopOptions(selected='',allowNone=true){return (allowNone?"<option value=''>Geral / sem seção</option>":'')+shopState.sections.map(x=>`<option value='${esc(x.id)}' ${selected===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}
 function shopSectionName(id){return shopState.sections.find(x=>x.id===id)?.name||'Geral'}
-function shopColor(uid){const person=(state.relationshipPeople||state.relationshipMembers||[]).find(x=>x.user_id===uid||x.id===uid);return person?.cor|| (uid===state.userId?state.cor:'#b38a79')}
+function shopColor(uid){const person=(state.members||[]).find(x=>x.user_id===uid||x.id===uid);return person?.cor|| (uid===state.userId?state.cor:'#b38a79')}
 function compras(){const pending=shopState.shopping.filter(x=>!x.purchased).sort((a,b)=>a.created_at.localeCompare(b.created_at)),done=shopState.shopping.filter(x=>x.purchased).sort((a,b)=>(b.purchased_at||'').localeCompare(a.purchased_at||''));return `<h2>Compras e estoque</h2>
 <div class='card'><h3>Lista de compras · ${pending.length} pendente(s)</h3><div class='profile-grid'><input id='shopTitle' class='field' maxlength='180' placeholder='O que precisamos comprar?' onkeydown="if(event.key==='Enter')addShopping()"><select id='shopSection' class='field'>${shopOptions()}</select></div><button class='btn primary' onclick='addShopping()'>Adicionar à lista</button><div style='margin-top:14px'>${pending.map(x=>`<div style='padding:12px 0;border-bottom:1px solid #ffffff22;display:flex;justify-content:space-between;align-items:center;gap:8px'><b>${esc(x.title)}</b><span class='small'>${esc(shopSectionName(x.section_id))}</span><button class='btn primary' onclick="buyShopping('${x.id}')">Comprei ✓</button></div>`).join('')||"<p class='small'>A lista está vazia. Adicione o primeiro item.</p>"}</div></div>
 ${done.length?`<div class='card'><h3>Comprados</h3>${done.map(x=>`<div style='border-left:5px solid ${shopColor(x.purchased_by)};padding:9px 12px;margin:7px 0;display:flex;justify-content:space-between;gap:8px'><span style='text-decoration:line-through;opacity:.7'>${esc(x.title)}</span><button class='btn ghost' onclick="undoShopping('${x.id}')">Desfazer</button></div>`).join('')}</div>`:''}
