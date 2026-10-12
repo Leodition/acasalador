@@ -59,12 +59,12 @@ const SUPABASE_URL='https://nwsgvgsofhfycykopjpe.supabase.co';
 const SUPABASE_KEY='sb_publishable_P6u3sXOCVf7k2gTxheBbPQ_SHMd9QT8';
 const demoMode=true;
 const sb=demoMode?null:window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-let step=0;const state=demoMode?{name:'Visitante',nick:'Visitante',tipo:'Casal',cor:'#687780',moneyCats:[],reminders:[]}:JSON.parse(localStorage.getItem('acasalador')||'{}');const qs=[
+let step=0;const state=demoMode?{name:'Visitante',nick:'Visitante',tipo:'Casal',cor:'#687780',moneyCats:[],reminders:[]}:JSON.parse(localStorage.getItem('tefalei')||localStorage.getItem('acasalador')||'{}');const qs=[
 {title:'Como é a relação de vocês?',opts:['Casal','Trisal'],key:'tipo'},
 {title:'Há quanto tempo vocês estão juntos?',input:'Ex.: 3 anos e 4 meses',key:'tempo'},
 {title:'Vocês moram juntos?',opts:['Sim','Não','Às vezes / parcialmente'],key:'moram'},
 {title:'Escolha sua cor',colors:['#ff6b6b','#ff8c42','#f5c542','#4caf72','#36a2eb','#7657d5','#d653a5','#222222'],key:'cor'}];
-function save(){if(!demoMode)localStorage.setItem('acasalador',JSON.stringify(state))}
+function save(){if(!demoMode)localStorage.setItem('tefalei',JSON.stringify(state))}
 function el(id){return document.getElementById(id)}
 async function signupAction(){
   if(demoMode)return;
@@ -353,7 +353,7 @@ async function shareInvite(btn){
   try{
     const rid=await ensureRelationship();if(!rid)return;
     const {data,error}=await sb.rpc('tefalei_create_invite',{p_relationship:rid});if(error)throw error;
-    const base=location.protocol==='file:'?'https://acasalador.leodition.com.br/':location.origin+location.pathname;
+    const base=location.protocol==='file:'?'https://tefalei.leodition.com.br/':location.origin+location.pathname;
     const url=base+'?convite='+encodeURIComponent(data.codigo);
     lastInviteText=(state.nick||state.name||'Alguém')+' convidou você para entrar no TeFalei. '+url;
     const box=el('feature').classList.contains('hide')?el('inviteResult'):el('inviteResultProfile');
