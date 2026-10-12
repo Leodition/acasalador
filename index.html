@@ -110,7 +110,7 @@ async function transitionScreen(id,render){
   if(serial===navigationSerial)navigationAnimations=[];
 }
 function updateInviteVisibility(){el('invite').classList.toggle('hide',demoMode||!state.relationshipId||(state.members||[]).length>=(state.tipo==='Trisal'?3:2));}
-function showApp(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');startPartnerChecks();el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
+function showApp(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();if(!agendaLoaded&&!agendaLoading)loadAgendaState();state.currentPage='home';save();setActivePage('home');el('bottom').classList.remove('hide');startPartnerChecks();if(!demoMode&&notificationPermission()==='granted')registerRemotePush().catch(e=>console.warn('Registro push pendente:',e));el('hello').textContent=`Oi, ${state.nick||state.name||'você'}. Vamos cuidar da vida juntos.`;return transitionScreen('app')}
 function home(record=true){refreshRelationshipAnniversary();checkAnniversaryReminders();if(record)recordAppPage('home');updateInviteVisibility();state.currentPage='home';save();setActivePage('home');return transitionScreen('app')}
 async function page(p,record=true){
   if(p==='configuracoes')offerNotificationPermission();
@@ -386,7 +386,7 @@ async function profileAction(){
  Object.assign(state,{name:values.p_nome,nick:values.p_apelido,phone:values.p_celular,loveName:values.p_parceiro,cor:values.p_cor,birthDate:values.p_nascimento||'',gender:values.p_genero||'',genderDescription:values.p_genero==='autodescricao'?values.p_descricao:''});document.documentElement.style.setProperty('--me',state.cor);save();profileEditing=false;notify('Perfil salvo.');await page('perfil');
 }
 async function loadNotificationPreferences(){if(demoMode)return;const {data,error}=await sb.from('tefalei_notification_preferences').select('enabled,sound,vibration').eq('user_id',state.userId).maybeSingle();if(error)throw error;state.notificationPrefs=data||{enabled:false,sound:false,vibration:false};save()}
-async function persistNotificationPreferences(prefs){if(!demoMode){const {error}=await sb.from('tefalei_notification_preferences').upsert({user_id:state.userId,...prefs,updated_at:new Date().toISOString()});if(error)throw error}state.notificationPrefs=prefs;save()}
+async function persistNotificationPreferences(prefs){if(!demoMode){const {volume,...cloudPrefs}=prefs;const {error}=await sb.from('tefalei_notification_preferences').upsert({user_id:state.userId,...cloudPrefs,updated_at:new Date().toISOString()});if(error)throw error}state.notificationPrefs=prefs;save();if(prefs.enabled&&notificationPermission()==='granted')registerRemotePush().catch(e=>console.warn('Registro push pendente:',e))}
 // Set this public VAPID key after deploying the Supabase push sender.
 const TEFALEI_VAPID_PUBLIC_KEY='BLpycb3yWnCsTNorNQJtfqyMEb80CEzb9NxE84LJn4gnTbDV-kneVd23zsTvBMCBdl1fdOApgvg4RrHvOTUuoK0';
 function vapidBytes(base64){const padded=(base64+'='.repeat((4-base64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(padded),c=>c.charCodeAt(0))}
