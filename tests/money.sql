@@ -10,8 +10,10 @@ begin
  execute 'set local role authenticated';
  saved:=public.tefalei_save_individual_money(1234.56,'[{"id":"teste","name":"Planejamento","items":[{"id":"fixo","desc":"Fixo de teste","value":100,"fixed":true}]}]'::jsonb,rev);
  if saved.income<>1234.56 or jsonb_array_length(saved.categories)<>1 then raise exception 'Dados não salvos';end if;
- select count(*) into leaked from public.tefalei_individual_money where user_id=other_user;
+ perform set_config('request.jwt.claim.sub',other_user::text,true);
+ select count(*) into leaked from public.tefalei_individual_money where user_id=actor;
  if leaked<>0 then raise exception 'Dados de outra conta expostos';end if;
+ perform set_config('request.jwt.claim.sub',actor::text,true);
  begin perform public.tefalei_save_individual_money(9999,'[]'::jsonb,rev);exception when others then denied:=true;end;
  if not denied then raise exception 'Gravação antiga sobrescreveu dados novos';end if;
  execute 'reset role';
