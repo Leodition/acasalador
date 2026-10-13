@@ -117,6 +117,7 @@ async function page(p,record=true){
   if(p==='configuracoes')offerNotificationPermission();
   if(!demoMode&&state.logged)startPartnerChecks();
   if(p==='agenda'&&!agendaLoading)loadAgendaState();
+  if(p==='dinheiro'&&!demoMode)await loadMoneyState();
   if((p==='compras'||p==='perfil')&&!shopState.loading)loadShop();
   if(p==='compras'&&!demoMode&&state.logged)loadRelationshipPeople().then(()=>shopRefresh()).catch(()=>{});
   if(p==='perfil'&&!demoMode&&state.logged){try{await loadRelationshipPeople()}catch(e){notify(e.message)}}
@@ -599,7 +600,7 @@ async function loginAction(){
 async function logoutAction(){
   if(demoMode){location.href=location.pathname;return}
   navigationSerial++;navigationAnimations.forEach(a=>a.cancel());navigationAnimations=[];
-  const {error}=await sb.auth.signOut();if(error)throw error;stopPartnerChecks();
+  backupMoneyState();const {error}=await sb.auth.signOut();if(error)throw error;stopPartnerChecks();
   state.logged=false; save();
   el('feature').classList.add('hide'); el('app').classList.add('hide'); el('bottom').classList.add('hide');
   el('login').classList.remove('hide'); showLogin(); el('loginPass').value='';
@@ -607,7 +608,7 @@ async function logoutAction(){
 async function hydrateUser(user){
   if(!user)return;
   const pending=state.pendingInvite;
-  if(state.userId!==user.id){agendaLoaded=false;for(const k of Object.keys(state))delete state[k];state.userId=user.id;if(pending)state.pendingInvite=pending}
+  if(state.userId!==user.id){backupMoneyState();moneyLoadedFor=null;moneyRevision=0;agendaLoaded=false;for(const k of Object.keys(state))delete state[k];state.userId=user.id;if(pending)state.pendingInvite=pending}
   const m=user.user_metadata||{};
  const {data:details,error:detailsError}=await sb.from('tefalei_profile_details').select('birth_date,gender,gender_description,contact_email,contact_whatsapp').eq('user_id',user.id).maybeSingle();
  if(detailsError)throw new Error('Não foi possível carregar seu perfil: '+detailsError.message);
@@ -622,7 +623,7 @@ async function hydrateUser(user){
   state.loveName=p?.apelido_parceiro||'';
   if(p?.cor)state.cor=p.cor;
   if(p?.onboarding_concluido)state.onboardingDone=true;
-  delete state.password; save();
+  delete state.password; save();await loadMoneyState();
 }
 async function loadCloudState(user){
   if(!user)return;
@@ -655,16 +656,58 @@ function leaveRelationship(){if(!confirm('Desvincular sua conta deste espaço? V
 })}
 async function clearPendingInvite(){delete state.pendingInvite;save();await sb.auth.updateUser({data:{tefalei_pending_invite:null}});const clean=new URL(location.href);clean.searchParams.delete('convite');history.replaceState(null,'',clean);el('invitationWelcome').classList.add('hide');}
 
-function moneyMode(m){moneyArea.innerHTML=m==='individual'?moneyIndividual():`<div class='card'><h3>Conjunto</h3><p class='small'>A negociação de despesas entre contas será ativada quando conectarmos o banco online.</p></div>`}
-function moneyIndividual(){let inc=state.moneyIncome||0, cats=state.moneyCats||[];let spent=cats.reduce((s,c)=>s+c.items.reduce((a,x)=>a+(+x.value||0),0),0);return `<div class='card'><h3>Resumo individual <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 4v3"/></svg></h3>
-<div class='moneySummary'><div class='stat'><span class='small'>Receitas</span><b>${brl(inc)}</b></div><div class='stat'><span class='small'>Saldo estimado</span><b>${brl(inc-spent)}</b></div></div>
-<label class='small'>Salário/receitas do mês</label><input class='field' id='income' type='number' step='0.01' value='${inc||""}' placeholder='0,00'><button class='btn ghost' onclick='saveIncome()'>Salvar receita</button></div>
-<div class='card'><h3>Categorias</h3><div id='cats'>${renderCats()}</div><div class='row'><input class='field' style='flex:1' id='catName' placeholder='Ex.: Carro'><button class='btn primary' onclick='addCat()'>+ Categoria</button></div></div>`}
+let moneyLoadedFor=null,moneyRevision=0,moneySaving=false;
+let moneyLoadTask=null,moneyLoadOwner=null;
+function moneyCacheKey(userId){return 'tefalei-money-'+userId}
+function backupMoneyState(){if(demoMode||!state.userId)return;try{localStorage.setItem(moneyCacheKey(state.userId),JSON.stringify({income:state.moneyIncome||0,categories:state.moneyCats||[]}))}catch(e){console.warn('Cópia local do dinheiro indisponível:',e.message)}}
+function normalizeMoneyCategories(cats){return (Array.isArray(cats)?cats:[]).filter(c=>c&&typeof c.name==='string').map((c,i)=>({...c,id:c.id||'legacy-category-'+i,items:(Array.isArray(c.items)?c.items:[]).filter(x=>x&&typeof x.desc==='string').map((x,j)=>({...x,id:x.id||'legacy-item-'+i+'-'+j,value:Number(x.value)||0}))}))}
+function applyMoneyRow(row,owner){if(state.userId!==owner)return;state.moneyIncome=Number(row.income)||0;state.moneyCats=normalizeMoneyCategories(row.categories);moneyRevision=row.revision;moneyLoadedFor=owner;backupMoneyState();save()}
+async function loadMoneyState(){
+ if(demoMode||!state.userId)return true;
+ const owner=state.userId;if(moneyLoadTask&&moneyLoadOwner===owner)return moneyLoadTask;
+ moneyLoadOwner=owner;
+ const task=(async()=>{try{
+  const {data,error}=await sb.from('tefalei_individual_money').select('income,categories,revision,updated_at').eq('user_id',owner).maybeSingle();if(error)throw error;if(state.userId!==owner)return false;
+  if(data){applyMoneyRow(data,owner);return true}
+  let cached;try{cached=JSON.parse(localStorage.getItem(moneyCacheKey(owner))||'null')}catch{}
+  const legacy={income:Number(state.moneyIncome)||0,categories:normalizeMoneyCategories(state.moneyCats)};
+  let oldLocal;try{const old=JSON.parse(localStorage.getItem('acasalador')||'null');if(old?.userId===owner)oldLocal={income:Number(old.moneyIncome)||0,categories:normalizeMoneyCategories(old.moneyCats)}}catch{}
+  const local=legacy.income||legacy.categories.length?legacy:cached||oldLocal;
+  moneyRevision=0;moneyLoadedFor=owner;
+  if(local&&(Number(local.income)||local.categories?.length)){
+   const {data:imported,error:importError}=await sb.rpc('tefalei_save_individual_money',{p_income:Number(local.income)||0,p_categories:normalizeMoneyCategories(local.categories),p_expected_revision:0});if(importError)throw importError;applyMoneyRow(imported,owner);
+  }else{state.moneyIncome=0;state.moneyCats=[];save()}
+  return true;
+ }catch(e){if(state.userId===owner){moneyLoadedFor=null;notify('Não foi possível carregar seu dinheiro. Seus dados deste aparelho foram mantidos. '+e.message)}return false}})();
+ moneyLoadTask=task;try{return await task}finally{if(moneyLoadTask===task){moneyLoadTask=null;moneyLoadOwner=null}}
+}
+async function persistMoneyState(income,categories){
+ if(moneySaving)return false;if(!Number.isFinite(income)||income<0)return notify('Informe um valor válido para a receita.');
+ if(demoMode){state.moneyIncome=income;state.moneyCats=categories;moneyMode('individual');return true}
+ if(!state.logged||!state.userId)return notify('Entre na conta para salvar seu dinheiro.');
+ if(moneyLoadedFor!==state.userId){notify('Reabra Nosso dinheiro para carregar seus dados antes de salvar.');return false}
+ const owner=state.userId,revision=moneyRevision;moneySaving=true;
+ try{const {data,error}=await sb.rpc('tefalei_save_individual_money',{p_income:income,p_categories:categories,p_expected_revision:revision});if(error)throw error;if(state.userId!==owner)return false;applyMoneyRow(data,owner);moneyMode('individual');notify('Salvo na sua conta.');return true}
+ catch(e){notify('Não foi possível salvar. O que você digitou continua na tela. '+e.message);return false}finally{moneySaving=false}
+}
+function moneyMode(m){const area=el('moneyArea');if(area)area.innerHTML=m==='individual'?moneyIndividual():`<div class='card'><h3>Conjunto</h3><p class='small'>A negociação de despesas entre contas será ativada quando conectarmos o banco online.</p></div>`}
+let moneyMonth=null;
+function currentMoneyMonth(){return moneyMonth||brazilToday().slice(0,7)}
+function setMoneyMonth(month){if(/^\d{4}-\d{2}$/.test(month)){moneyMonth=month;moneyMode('individual')}}
+function moneyTotals(){const month=currentMoneyMonth(),items=normalizeMoneyCategories(state.moneyCats).flatMap(c=>c.items),fixed=items.filter(x=>x.fixed).reduce((n,x)=>n+x.value,0),spent=items.filter(x=>!x.fixed&&(!x.date||(x.month||x.date.slice(0,7))===month)).reduce((n,x)=>n+x.value,0),income=Number(state.moneyIncome)||0;return {income,fixed,spent,balance:income-fixed-spent}}
+function moneyIndividual(){const totals=moneyTotals();return `<div class='card'><div class='row'><h3>Resumo individual</h3><input class='field' style='width:auto' type='month' aria-label='Mês dos gastos' value='${currentMoneyMonth()}' onchange='setMoneyMonth(this.value)'></div><div class='moneySummary'><div class='stat'><span class='small'>Receita prevista</span><b>${brl(totals.income)}</b></div><div class='stat'><span class='small'>Saldo previsto</span><b>${brl(totals.balance)}</b></div><div class='stat'><span class='small'>Fixos mensais planejados</span><b>${brl(totals.fixed)}</b></div><div class='stat'><span class='small'>Outros gastos no mês</span><b>${brl(totals.spent)}</b></div></div><label class='small'>Salário/receita prevista do mês</label><div class='row'><input class='field' style='flex:1' id='income' type='number' min='0' step='0.01' value='${totals.income||""}' placeholder='0,00'><button class='btn ghost' onclick='saveIncome()'>Salvar receita</button></div></div><div class='card'><h3>Categorias e gastos</h3><div id='cats'>${renderCats()}</div><div class='row'><input class='field' style='flex:1' id='catName' placeholder='Ex.: Transporte, Casa'><button class='btn primary' onclick='addCat()'>+ Categoria</button></div></div>`}
 function brl(v){return (+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-function saveIncome(){state.moneyIncome=+income.value||0;save();moneyMode('individual')}
-function addCat(){let n=catName.value.trim();if(!n)return;state.moneyCats=state.moneyCats||[];state.moneyCats.push({name:n,items:[]});save();moneyMode('individual')}
-function renderCats(){let cats=state.moneyCats||[];if(!cats.length)return `<p class='small'>Nenhuma categoria ainda.</p>`;return cats.map((c,i)=>{let total=c.items.reduce((s,x)=>s+(+x.value||0),0);return `<div class='cat'><b>${esc(c.name)} <span class='right'>${brl(total)}</span></b>${c.items.map(x=>`<div class='expense'>${esc(x.desc)} <span class='right'>${brl(x.value)}</span><div class='small'>${esc(x.method)}${x.card?' • '+esc(x.card):''}</div></div>`).join('')}<input class='field' id='desc${i}' placeholder='Ex.: Gasolina'><input class='field' id='val${i}' type='number' step='0.01' placeholder='Valor'><select class='field' id='method${i}'><option>Pix</option><option>Dinheiro</option><option>Débito</option><option>Crédito</option></select><input class='field' id='card${i}' placeholder='Cartão (opcional)'><button class='btn ghost' onclick='addExpense(${i})'>Adicionar gasto</button></div>`}).join('')}
-function addExpense(i){let d=document.getElementById('desc'+i).value.trim(),v=+document.getElementById('val'+i).value,m=document.getElementById('method'+i).value,c=document.getElementById('card'+i).value.trim();if(!d||!v)return;state.moneyCats[i].items.push({desc:d,value:v,method:m,card:c,date:new Date().toISOString()});save();moneyMode('individual')}
+async function saveIncome(){const raw=el('income')?.value;if(raw===undefined||raw==='')return notify('Informe a receita que deseja salvar.');const value=Number(String(raw).replace(',','.'));await persistMoneyState(value,normalizeMoneyCategories(state.moneyCats))}
+async function addCat(){const name=el('catName')?.value.trim();if(!name)return;const cats=normalizeMoneyCategories(state.moneyCats);cats.push({id:crypto.randomUUID(),name,items:[]});await persistMoneyState(Number(state.moneyIncome)||0,cats)}
+function renderCats(){const cats=normalizeMoneyCategories(state.moneyCats),month=currentMoneyMonth();if(!cats.length)return `<p class='small'>Nenhuma categoria ainda.</p>`;return cats.map((c,i)=>{const items=c.items.filter(x=>x.fixed||!x.date||(x.month||x.date.slice(0,7))===month),total=items.reduce((n,x)=>n+x.value,0);return `<div class='cat'><div class='row'><b style='flex:1'>${esc(c.name)} · ${brl(total)}</b><button class='btn ghost' onclick="editMoneyCategory('${c.id}')">Editar categoria</button></div>${items.map(x=>`<div class='expense' style='display:flex;align-items:center;gap:8px'><div style='flex:1'><b>${esc(x.desc)}</b><small style='display:block'>${x.fixed?'Fixo mensal'+(x.dueDay?' · dia '+Number(x.dueDay):''):'Gasto registrado'}</small></div><b>${brl(x.value)}</b><button class='btn ghost' onclick="editMoneyExpense('${c.id}','${x.id}')">Editar</button></div>`).join('')}<div class='profile-grid'><input class='field' id='desc${i}' placeholder='Ex.: Gasolina, Aluguel'><input class='field' id='val${i}' type='number' min='0' step='0.01' placeholder='Valor'></div><div class='row'><label class='small'><input type='checkbox' id='fixed${i}'> Gasto fixo mensal</label><input class='field' style='width:130px' id='due${i}' type='number' min='1' max='31' placeholder='Dia (opcional)' aria-label='Dia de vencimento'></div><button class='btn ghost' onclick='addExpense(${i})'>Salvar gasto</button></div>`}).join('')}
+function moneyExpenseValues(descId,valueId,fixedId,dueId){const desc=el(descId)?.value.trim(),value=Number(String(el(valueId)?.value||'').replace(',','.')),fixed=!!el(fixedId)?.checked,due=el(dueId)?.value||'',dueDay=due?Number(due):null;if(!desc||!Number.isFinite(value)||value<=0)throw new Error('Informe a descrição e um valor válido.');if(fixed&&dueDay!==null&&(!Number.isInteger(dueDay)||dueDay<1||dueDay>31))throw new Error('Informe um dia entre 1 e 31.');return {desc,value,fixed,dueDay:fixed?dueDay:null}}
+async function addExpense(i){try{const values=moneyExpenseValues('desc'+i,'val'+i,'fixed'+i,'due'+i),cats=normalizeMoneyCategories(state.moneyCats);if(!cats[i])return notify('Reabra Nosso dinheiro para atualizar as categorias.');cats[i].items.push({...values,id:crypto.randomUUID(),date:new Date().toISOString(),month:currentMoneyMonth()});await persistMoneyState(Number(state.moneyIncome)||0,cats)}catch(e){notify(e.message)}}
+function editMoneyExpense(categoryId,itemId){const c=normalizeMoneyCategories(state.moneyCats).find(x=>x.id===categoryId),x=c?.items.find(x=>x.id===itemId);if(!x)return;agendaModal(`<h2>Editar gasto</h2><label class='small'>Descrição<input class='field' id='moneyEditDesc' value='${esc(x.desc)}'></label><label class='small'>Valor<input class='field' id='moneyEditValue' type='number' min='0' step='0.01' value='${x.value}'></label><label class='small'><input type='checkbox' id='moneyEditFixed' ${x.fixed?'checked':''}> Gasto fixo mensal</label><input class='field' id='moneyEditDue' type='number' min='1' max='31' placeholder='Dia de vencimento (opcional)' value='${x.dueDay||''}'><div class='dialog-actions'><button class='btn primary' onclick="saveMoneyExpense('${categoryId}','${itemId}')">Salvar</button><button class='btn danger' onclick="deleteMoneyExpense('${categoryId}','${itemId}')">Excluir gasto</button></div>`)}
+async function saveMoneyExpense(categoryId,itemId){try{const values=moneyExpenseValues('moneyEditDesc','moneyEditValue','moneyEditFixed','moneyEditDue'),cats=normalizeMoneyCategories(state.moneyCats),c=cats.find(x=>x.id===categoryId),x=c?.items.find(x=>x.id===itemId);if(!x)return;Object.assign(x,values);if(await persistMoneyState(Number(state.moneyIncome)||0,cats))closeAgendaDialog()}catch(e){notify(e.message)}}
+async function deleteMoneyExpense(categoryId,itemId){const cats=normalizeMoneyCategories(state.moneyCats),c=cats.find(x=>x.id===categoryId),item=c?.items.find(x=>x.id===itemId);if(!item||!confirm('Excluir "'+item.desc+'"?'))return;c.items=c.items.filter(x=>x.id!==itemId);if(await persistMoneyState(Number(state.moneyIncome)||0,cats))closeAgendaDialog()}
+function editMoneyCategory(id){const c=normalizeMoneyCategories(state.moneyCats).find(x=>x.id===id);if(c)agendaModal(`<h2>Editar categoria</h2><input class='field' id='moneyCategoryName' maxlength='100' value='${esc(c.name)}'><div class='dialog-actions'><button class='btn primary' onclick="saveMoneyCategory('${id}')">Salvar</button><button class='btn danger' onclick="deleteMoneyCategory('${id}')">Excluir categoria</button></div>`)}
+async function saveMoneyCategory(id){const cats=normalizeMoneyCategories(state.moneyCats),c=cats.find(x=>x.id===id),name=el('moneyCategoryName')?.value.trim();if(!c||!name)return notify('Informe o nome da categoria.');c.name=name;if(await persistMoneyState(Number(state.moneyIncome)||0,cats))closeAgendaDialog()}
+async function deleteMoneyCategory(id){const cats=normalizeMoneyCategories(state.moneyCats),c=cats.find(x=>x.id===id);if(!c||!confirm('Excluir a categoria "'+c.name+'"'+(c.items.length?' e seus '+c.items.length+' gastos':'')+'?'))return;if(await persistMoneyState(Number(state.moneyIncome)||0,cats.filter(x=>x.id!==id)))closeAgendaDialog()}
 async function ensureRelationship(){
   if(demoMode)return null;
   if(state.relationshipId)return state.relationshipId;
