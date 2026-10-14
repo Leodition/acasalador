@@ -1,0 +1,38 @@
+begin;
+do $$
+declare rel uuid; actor uuid; partner uuid; item uuid; photo text; visible integer; denied boolean:=false;
+begin
+ select relationship_id into rel from public.relationship_members group by relationship_id having count(*)>=2 limit 1;
+ select user_id into actor from public.relationship_members where relationship_id=rel order by user_id limit 1;
+ select user_id into partner from public.relationship_members where relationship_id=rel and user_id<>actor limit 1;
+ if actor is null or partner is null then raise exception 'Faltam participantes para validar';end if;
+ photo:=rel::text||'/'||gen_random_uuid()::text||'.jpg';
+ perform set_config('request.jwt.claim.sub',actor::text,true);
+ execute 'set local role authenticated';
+ insert into public.tefalei_favorite_things(relationship_id,title,brand,photo_path) values(rel,'_teste_arroz_','_teste_marca_',photo) returning id into item;
+ insert into storage.objects(bucket_id,name) values('tefalei-things',photo);
+ perform set_config('request.jwt.claim.sub',partner::text,true);
+ select count(*) into visible from public.tefalei_favorite_things where id=item;
+ if visible<>1 then raise exception 'Parceiro não vê o item';end if;
+ select count(*) into visible from storage.objects where bucket_id='tefalei-things' and name=photo;
+ if visible<>1 then raise exception 'Parceiro não vê a foto';end if;
+ update public.tefalei_favorite_things set brand='_editado_' where id=item;
+ perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
+ select count(*) into visible from public.tefalei_favorite_things where id=item;
+ if visible<>0 then raise exception 'Item exposto fora do relacionamento';end if;
+ select count(*) into visible from storage.objects where bucket_id='tefalei-things' and name=photo;
+ if visible<>0 then raise exception 'Foto exposta fora do relacionamento';end if;
+ begin insert into public.tefalei_favorite_things(relationship_id,title) values(rel,'_intruso_');exception when insufficient_privilege then denied:=true;end;
+ if not denied then raise exception 'Pessoa externa cadastrou item';end if;
+ denied:=false;
+ begin insert into storage.objects(bucket_id,name) values('tefalei-things',rel::text||'/intruso.jpg');exception when insufficient_privilege then denied:=true;end;
+ if not denied then raise exception 'Pessoa externa enviou foto';end if;
+ perform set_config('request.jwt.claim.sub',actor::text,true);
+ update public.tefalei_favorite_things set archived=true where id=item;
+ select count(*) into visible from public.tefalei_favorite_things where id=item and not archived;
+ if visible<>0 then raise exception 'Item excluído permanece na lista';end if;
+ execute 'reset role';
+ if exists(select 1 from storage.buckets where id='tefalei-things' and public) then raise exception 'Fotos públicas';end if;
+end;$$;
+rollback;
+select 'PASS: cadastro, edição e exclusão; itens e fotos compartilhados apenas entre participantes; acesso externo bloqueado; teste revertido' as validacao;

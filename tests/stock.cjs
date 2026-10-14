@@ -12,7 +12,7 @@ f=ctx.stockForecast({quantity:6,minimum:0,average_consumption:2,consumption_peri
 f=ctx.stockForecast({quantity:30,minimum:0,updated_at:new Date(t).toISOString()},t);assert.equal(f.days,null);assert.equal(f.remaining,30);
 f=ctx.stockForecast({quantity:1,minimum:0,average_consumption:2,consumption_period_days:1,updated_at:'2026-10-02T12:00:00Z'},t);assert.equal(f.remaining,0);assert.equal(f.alert,true);
 f=ctx.stockForecast({quantity:3,minimum:0,average_consumption:3,consumption_period_days:45,alert_days:3,updated_at:'2026-10-14T03:00:00Z'},t);assert.equal(f.remaining,3);assert.equal(f.due.toISOString(),'2026-11-28T03:00:00.000Z');
-const order=[...html.matchAll(/class='tile' onclick="page\('([^']+)'\)/g)].map(m=>m[1]);assert.deepEqual(order,['compras','lembretes','agenda','lugares','dinheiro','perfil']);
+const order=[...html.matchAll(/class='tile' onclick="page\('([^']+)'\)/g)].map(m=>m[1]);assert.deepEqual(order,['compras','lembretes','agenda','lugares','dinheiro','coisas','perfil']);
 assert(!html.includes('Ir para Nós'));
 console.log('PASS: syntax, dates, menu order, consumption, zero consumption, depletion and advance alerts');
 
